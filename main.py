@@ -19,9 +19,110 @@ def read_model_server_config(file) -> dict:
     return data
 
 
+def validate_config(config: dict):
+    if "type" not in config:
+        raise RuntimeError("missing 'type'")
+
+    if "py_version" not in config:
+        config["py_version"] = "3.6.9"
+
+    if "dev" not in config:
+        config["dev"] = False
+
+    if "log_level" not in config:
+        config["log_level"] = "info"
+    else:
+        config["log_level"] = config["log_level"].lower()
+
+    if "env" not in config:
+        config["env"] = {}
+
+    if "config" not in config:
+        config["config"] = {}
+
+    if "processes_per_replica" not in config:
+        config["processes_per_replica"] = 1
+    if "threads_per_process" not in config:
+        config["threads_per_process"] = 1
+    if "max_replica_concurrency" not in config:
+        config["max_replica_concurrency"] = 1
+
+    if "dependencies" not in config:
+        config["dependencies"] = {
+            "pip": "requirements.txt",
+            "conda": "conda-packages.txt",
+            "shell": "dependencies.sh",
+        }
+    elif "pip" not in config["dependencies"]:
+        config["dependencies"]["pip"] = "requirements.txt"
+    elif "conda" not in config["dependencies"]:
+        config["dependencies"]["conda"] = "conda-packages.txt"
+    elif "shell" not in config["dependencies"]:
+        config["dependencies"]["shell"] = "dependencies.sh"
+
+    if "server_side_batching" in config:
+        if "max_batch_size" not in config["server_side_batching"]:
+            raise RuntimeError("server_side_batching: missing 'max_batch_size' field")
+        if "batch_interval" not in config["batch_interval"]:
+            raise RuntimeError("server_side_batching: missing 'batch_interval' field")
+        if not isinstance(config["server_side_batching"]["max_batch_size"], int):
+            raise RuntimeError("server_side_batching: 'max_batch_size' field isn't of type 'int'")
+        if not isinstance(config["server_side_batching"]["batch_interval"], float):
+            raise RuntimeError("server_side_batching: 'batch_interval' field isn't of type 'float'")
+
+    if config["type"] == "python" and "models" in config:
+        raise RuntimeError("'models' field not supported for 'python' type")
+    if config["type"] == "tensorflow" and "multi_model_reloading" in config:
+        raise RuntimeError("'multi_model_reloading' field not supported for 'tensorflow' type")
+
+    models_fieldname: str
+    if config["type"] == "python":
+        models_fieldname = "multi_model_reloading"
+    if config["type"] == "tensorflow":
+        models_fieldname = "models"
+
+    if models_fieldname in config:
+        if (
+            ("path" in config and ("paths" in config or "dir" in config))
+            or ("paths" in config and ("path" in config or "dir" in config))
+            or ("dir" in config and ("paths" in config or "path" in config))
+        ):
+            raise RuntimeError(f"{models_fieldname}: can only specify 'path', 'paths' or 'dir'")
+
+        if (
+            "cache_size" in config[models_fieldname]
+            and "disk_cache_size" not in config[models_fieldname]
+        ) or (
+            "cache_size" not in config[models_fieldname]
+            and "disk_cache_size" in config[models_fieldname]
+        ):
+            raise RuntimeError(
+                f"{models_fieldname}: when the cache is configured, both 'cache_size' and 'disk_cache_size' fields must be specified"
+            )
+
+        if "paths" in config[models_fieldname]:
+            if len(config[models_fieldname]["paths"]) == 0:
+                raise RuntimeError(
+                    f"{models_fieldname}: if the 'path' field list is specified, then its length must be at least 1"
+                )
+            for idx, path in enumerate(config[models_fieldname]["paths"]):
+                if "name" not in path:
+                    raise RuntimeError(f"{models_fieldname}: paths: {idx}: name field required")
+                if "path" not in path:
+                    raise RuntimeError(f"{models_fieldname}: paths: {idx}: path field required")
+
+    if "gpu" in config and (
+        ("cuda" in config["gpu"] and "cudnn" not in config["gpu"])
+        or ("cuda" in config["gpu"] and "cudnn" not in config["gpu"])
+    ):
+        raise RuntimeError("gpu: both 'cuda' and 'cudnn' fields must be specified")
+
+
 def build_dockerfile_images(config: dict, path_to_config: str) -> List[str]:
+    validate_config(config)
+
     # if using the local files or the git clone in the Dockerfiles
-    dev_env = "dev" in config and config["dev"]
+    dev_env = config["dev"]
 
     # get handler template
     handler_template = pkgutil.get_data(__name__, "templates/handler.Dockerfile")
