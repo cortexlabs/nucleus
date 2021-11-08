@@ -17,7 +17,7 @@ from typing import Dict, List
 
 from cortex_internal.lib import util
 from cortex_internal.lib.exceptions import UserException
-from cortex_internal.lib.type import handler_type_from_api_spec, PythonHandlerType
+from cortex_internal.lib.type import handler_type_from_server_config, PythonHandlerType
 
 
 def validate_class_impl(impl, impl_req):
@@ -122,7 +122,7 @@ def are_models_specified(api_spec: Dict) -> bool:
     Args:
         api_spec: API configuration.
     """
-    handler_type = handler_type_from_api_spec(api_spec)
+    handler_type = handler_type_from_server_config(api_spec)
 
     if handler_type == PythonHandlerType and api_spec["handler"]["multi_model_reloading"]:
         models = api_spec["handler"]["multi_model_reloading"]

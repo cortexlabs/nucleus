@@ -38,35 +38,6 @@ from cortex_internal.lib.type import HandlerType
 logger = configure_logger("cortex", os.environ["CORTEX_LOG_CONFIG_FILE"])
 
 
-def _read_json(json_path: str):
-    with open(json_path) as json_file:
-        return json.load(json_file)
-
-
-def get_spec(
-    spec_path: str,
-    cache_dir: str,
-    region: str,
-    spec_name: str = "api_spec.json",
-) -> Tuple[S3, dict]:
-    """
-    Args:
-        spec_path: Path to API spec (i.e. "s3://cortex-dev-0/apis/iris-classifier/api/69b93378fa5c0218-jy1fjtyihu-9fcc10739e7fc8050cefa8ca27ece1ee/master-spec.json").
-        cache_dir: Local directory where the API spec gets saved to.
-        region: Region of the bucket.
-        spec_name: File name of the spec as it is saved on disk.
-    """
-
-    bucket, key = S3.deconstruct_s3_path(spec_path)
-    storage = S3(bucket=bucket, region=region)
-
-    local_spec_path = os.path.join(cache_dir, spec_name)
-    if not os.path.isfile(local_spec_path):
-        storage.download_file(key, local_spec_path)
-
-    return storage, _read_json(local_spec_path)
-
-
 def model_downloader(
     handler_type: HandlerType,
     bucket_name: str,
@@ -140,88 +111,6 @@ def model_downloader(
     shutil.move(temp_dest, ondisk_model_version)
 
     return max(ts)
-
-
-class CortexMetrics:
-    def __init__(
-        self,
-        statsd_client: DogStatsd,
-        api_spec: Dict[str, Any],
-    ):
-        self._metric_value_id = api_spec["id"]
-        self._metric_value_handler_id = api_spec["handler_id"]
-        self._metric_value_deployment_id = api_spec["deployment_id"]
-        self._metric_value_name = api_spec["name"]
-        self.__statsd = statsd_client
-
-    def metric_dimensions_with_id(self):
-        return [
-            {"Name": "api_name", "Value": self._metric_value_name},
-            {"Name": "api_id", "Value": self._metric_value_id},
-            {"Name": "handler_id", "Value": self._metric_value_handler_id},
-            {"Name": "deployment_id", "Value": self._metric_value_deployment_id},
-        ]
-
-    def metric_dimensions(self):
-        return [{"Name": "api_name", "Value": self._metric_value_name}]
-
-    def post_request_metrics(self, status_code, total_time):
-        total_time_ms = total_time * 1000
-        metrics = [
-            self.status_code_metric(self.metric_dimensions(), status_code),
-            self.status_code_metric(self.metric_dimensions_with_id(), status_code),
-            self.latency_metric(self.metric_dimensions(), total_time_ms),
-            self.latency_metric(self.metric_dimensions_with_id(), total_time_ms),
-        ]
-        self.post_metrics(metrics)
-
-    def post_status_code_request_metrics(self, status_code):
-        metrics = [
-            self.status_code_metric(self.metric_dimensions(), status_code),
-            self.status_code_metric(self.metric_dimensions_with_id(), status_code),
-        ]
-        self.post_metrics(metrics)
-
-    def post_latency_request_metrics(self, total_time):
-        total_time_ms = total_time * 1000
-        metrics = [
-            self.latency_metric(self.metric_dimensions(), total_time_ms),
-            self.latency_metric(self.metric_dimensions_with_id(), total_time_ms),
-        ]
-        self.post_metrics(metrics)
-
-    def post_metrics(self, metrics):
-        try:
-            if self.__statsd is None:
-                raise CortexException("statsd client not initialized")  # unexpected
-
-            for metric in metrics:
-                tags = ["{}:{}".format(dim["Name"], dim["Value"]) for dim in metric["Dimensions"]]
-                if metric.get("Unit") == "Count":
-                    self.__statsd.increment(metric["MetricName"], value=metric["Value"], tags=tags)
-                else:
-                    self.__statsd.histogram(metric["MetricName"], value=metric["Value"], tags=tags)
-        except:
-            logger.warn("failure encountered while publishing metrics", exc_info=True)
-
-    def status_code_metric(self, dimensions, status_code):
-        status_code_series = int(status_code / 100)
-        status_code_dimensions = dimensions + [
-            {"Name": "response_code", "Value": "{}XX".format(status_code_series)}
-        ]
-        return {
-            "MetricName": "cortex_status_code",
-            "Dimensions": status_code_dimensions,
-            "Value": 1,
-            "Unit": "Count",
-        }
-
-    def latency_metric(self, dimensions, total_time):
-        return {
-            "MetricName": "cortex_latency",
-            "Dimensions": dimensions,
-            "Value": total_time,  # milliseconds
-        }
 
 
 class DynamicBatcher:

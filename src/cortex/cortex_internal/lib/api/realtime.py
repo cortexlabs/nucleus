@@ -21,7 +21,7 @@ from typing import List, Optional, Union, Any
 import dill
 from datadog import DogStatsd
 
-from cortex_internal.lib.api.utils import model_downloader, CortexMetrics
+from cortex_internal.lib.api.utils import model_downloader
 from cortex_internal.lib.api.validations import (
     validate_class_impl,
     validate_python_handler_with_models,
@@ -40,10 +40,9 @@ from cortex_internal.lib.model import (
     ModelsTree,
 )
 from cortex_internal.lib.type import (
-    handler_type_from_api_spec,
+    handler_type_from_server_config,
     PythonHandlerType,
     TensorFlowHandlerType,
-    TensorFlowNeuronHandlerType,
 )
 
 PYTHON_CLASS_VALIDATION = {
@@ -131,35 +130,34 @@ class RealtimeAPI:
     Also makes the specified models in cortex.yaml available to the handler's implementation.
     """
 
-    def __init__(self, api_spec: dict, statsd_client: DogStatsd, model_dir: str):
-        self.api_spec = api_spec
+    def __init__(self, model_server_config: dict, model_dir: str):
+        self._model_server_config = model_server_config
         self.model_dir = model_dir
 
-        self.metrics = CortexMetrics(statsd_client, api_spec)
-        self.type = handler_type_from_api_spec(api_spec)
-        self.path = api_spec["handler"]["path"]
-        self.config = api_spec["handler"].get("config", {})
-        self.protobuf_path = api_spec["handler"].get("protobuf_path")
+        self.type = handler_type_from_server_config(model_server_config)
+        self.path = model_server_config["path"]
+        self.config = model_server_config.get("config", {})
+        self.protobuf_path = model_server_config["handler"].get("protobuf_path")
 
         self.crons = []
-        if not are_models_specified(self.api_spec):
+        if not are_models_specified(self._model_server_config):
             return
 
         self.caching_enabled = self._is_model_caching_enabled()
-        self.multiple_processes = self.api_spec["handler"]["processes_per_replica"] > 1
+        self.multiple_processes = self._model_server_config["processes_per_replica"] > 1
 
         # model caching can only be enabled when processes_per_replica is 1
         # model side-reloading is supported for any number of processes_per_replica
 
         if self.caching_enabled:
             if self.type == PythonHandlerType:
-                mem_cache_size = self.api_spec["handler"]["multi_model_reloading"]["cache_size"]
-                disk_cache_size = self.api_spec["handler"]["multi_model_reloading"][
+                mem_cache_size = self._model_server_config["multi_model_reloading"]["cache_size"]
+                disk_cache_size = self._model_server_config["multi_model_reloading"][
                     "disk_cache_size"
                 ]
             else:
-                mem_cache_size = self.api_spec["handler"]["models"]["cache_size"]
-                disk_cache_size = self.api_spec["handler"]["models"]["disk_cache_size"]
+                mem_cache_size = self._model_server_config["models"]["cache_size"]
+                disk_cache_size = self._model_server_config["models"]["disk_cache_size"]
             self.models = ModelsHolder(
                 self.type,
                 self.model_dir,
@@ -167,10 +165,7 @@ class RealtimeAPI:
                 disk_cache_size=disk_cache_size,
                 on_download_callback=model_downloader,
             )
-        elif not self.caching_enabled and self.type not in [
-            TensorFlowHandlerType,
-            TensorFlowNeuronHandlerType,
-        ]:
+        elif not self.caching_enabled and self.type != TensorFlowHandlerType:
             self.models = ModelsHolder(self.type, self.model_dir)
         else:
             self.models = None
@@ -183,8 +178,8 @@ class RealtimeAPI:
     @property
     def python_server_side_batching_enabled(self):
         return (
-            self.api_spec["handler"].get("server_side_batching") is not None
-            and self.api_spec["handler"]["type"] == "python"
+            self._model_server_config.get("server_side_batching") is not None
+            and self._model_server_config["type"] == "python"
         )
 
     def initialize_client(
@@ -204,15 +199,17 @@ class RealtimeAPI:
 
         client = None
 
-        if are_models_specified(self.api_spec):
+        if are_models_specified(self._model_server_config):
             if self.type == PythonHandlerType:
-                client = ModelClient(self.api_spec, self.models, self.model_dir, self.models_tree)
+                client = ModelClient(
+                    self._model_server_config, self.models, self.model_dir, self.models_tree
+                )
 
-            if self.type in [TensorFlowHandlerType, TensorFlowNeuronHandlerType]:
+            if self.type == TensorFlowHandlerType:
                 tf_serving_address = tf_serving_host + ":" + tf_serving_port
                 client = TensorFlowClient(
                     tf_serving_address,
-                    self.api_spec,
+                    self._model_server_config,
                     self.models,
                     self.model_dir,
                     self.models_tree,
@@ -255,7 +252,7 @@ class RealtimeAPI:
         # initialize handler class
         try:
             if self.type == PythonHandlerType:
-                if are_models_specified(self.api_spec):
+                if are_models_specified(self._model_server_config):
                     args["model_client"] = client
                     # set load method to enable the use of the client in the constructor
                     # setting/getting from self in load_model won't work because self will be set to None
@@ -266,25 +263,28 @@ class RealtimeAPI:
                     client.set_load_method(initialized_impl.load_model)
                 else:
                     initialized_impl = class_impl(**args)
-            if self.type in [TensorFlowHandlerType, TensorFlowNeuronHandlerType]:
+            if self.type == TensorFlowHandlerType:
                 args["tensorflow_client"] = client
                 initialized_impl = class_impl(**args)
         except Exception as e:
             raise UserRuntimeException(self.path, "__init__", str(e)) from e
 
         # initialize the crons if models have been specified and if the API kind is RealtimeAPI
-        if are_models_specified(self.api_spec) and self.api_spec["kind"] == "RealtimeAPI":
+        if (
+            are_models_specified(self._model_server_config)
+            and self._model_server_config["kind"] == "RealtimeAPI"
+        ):
             if not self.multiple_processes and self.caching_enabled:
                 self.crons += [
                     ModelTreeUpdater(
                         interval=10,
-                        api_spec=self.api_spec,
+                        model_server_config=self._model_server_config,
                         tree=self.models_tree,
                         ondisk_models_dir=self.model_dir,
                     ),
                     ModelsGC(
                         interval=10,
-                        api_spec=self.api_spec,
+                        model_server_config=self._model_server_config,
                         models=self.models,
                         tree=self.models_tree,
                     ),
@@ -303,7 +303,7 @@ class RealtimeAPI:
     def class_impl(self, project_dir: str, rpc_method_names: Optional[List[str]] = None):
         """Can only raise UserException/CortexException exceptions"""
         target_class_name = "Handler"
-        if self.type in [TensorFlowHandlerType, TensorFlowNeuronHandlerType]:
+        if self.type == TensorFlowHandlerType:
             validations = TENSORFLOW_CLASS_VALIDATION
         elif self.type == PythonHandlerType:
             validations = PYTHON_CLASS_VALIDATION
@@ -320,9 +320,9 @@ class RealtimeAPI:
 
         try:
             validate_class_impl(handler_class, validations)
-            validate_handler_with_grpc(handler_class, self.api_spec, rpc_method_names)
+            validate_handler_with_grpc(handler_class, self._model_server_config, rpc_method_names)
             if self.type == PythonHandlerType:
-                validate_python_handler_with_models(handler_class, self.api_spec)
+                validate_python_handler_with_models(handler_class, self._model_server_config)
         except Exception as e:
             e.wrap("error in " + self.path)
             raise
@@ -361,10 +361,18 @@ class RealtimeAPI:
         Checks if model caching is enabled.
         """
         models = None
-        if self.type != PythonHandlerType and self.api_spec["handler"]["models"]:
-            models = self.api_spec["handler"]["models"]
-        if self.type == PythonHandlerType and self.api_spec["handler"]["multi_model_reloading"]:
-            models = self.api_spec["handler"]["multi_model_reloading"]
+        if (
+            self.type == TensorFlowHandlerType
+            and "models" in self._model_server_config
+            and self._model_server_config["models"] not in ["", None]
+        ):
+            models = self._model_server_config["models"]
+        if (
+            self.type == PythonHandlerType
+            and "multi_model_reloading" in self._model_server_config
+            and self._model_server_config["multi_model_reloading"] not in ["", None]
+        ):
+            models = self._model_server_config["multi_model_reloading"]
 
         return models and models["cache_size"] and models["disk_cache_size"]
 

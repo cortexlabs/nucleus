@@ -24,7 +24,7 @@ init_sentry(tags=get_default_tags())
 logger = configure_logger("cortex", os.environ["CORTEX_LOG_CONFIG_FILE"])
 
 from cortex_internal.lib.type import (
-    handler_type_from_api_spec,
+    handler_type_from_server_config,
     PythonHandlerType,
     TensorFlowHandlerType,
 )
@@ -47,13 +47,21 @@ def are_models_specified(model_server_config: dict) -> bool:
     ] not in ["", None]
 
 
-def is_model_caching_enabled(api_spec: dir) -> bool:
-    handler_type = handler_type_from_api_spec(api_spec)
+def is_model_caching_enabled(model_server_config: dir) -> bool:
+    handler_type = handler_type_from_server_config(model_server_config)
 
-    if handler_type == PythonHandlerType and "multi_model_reloading" in api_spec:
-        models = api_spec["handler"]["multi_model_reloading"]
-    elif handler_type != PythonHandlerType:
-        models = api_spec["handler"]["models"]
+    if (
+        handler_type == PythonHandlerType
+        and "multi_model_reloading" in model_server_config
+        and model_server_config["multi_model_reloading"] not in ["", None]
+    ):
+        models = model_server_config["multi_model_reloading"]
+    elif (
+        handler_type == TensorFlowHandlerType
+        and "models" in model_server_config
+        and model_server_config["models"] not in ["", None]
+    ):
+        models = model_server_config["models"]
     else:
         return False
 
@@ -67,7 +75,7 @@ def main():
     with open(model_server_config_path) as yaml_file:
         model_server_config = yaml.safe_load(yaml_file)
 
-    handler_type = handler_type_from_api_spec(model_server_config)
+    handler_type = handler_type_from_server_config(model_server_config)
     caching_enabled = is_model_caching_enabled(model_server_config)
     model_dir = os.getenv("CORTEX_MODEL_DIR")
 

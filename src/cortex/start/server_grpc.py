@@ -31,7 +31,7 @@ import grpc
 from grpc_reflection.v1alpha import reflection
 
 from cortex_internal.lib.api import RealtimeAPI
-from cortex_internal.lib.concurrency import FileLock, LockedFile
+from cortex_internal.lib.concurrency import FileLock
 from cortex_internal.lib.exceptions import UserRuntimeException
 from cortex_internal.lib.log import configure_logger
 from cortex_internal.lib.metrics import MetricsClient
@@ -143,7 +143,7 @@ def construct_handler_servicer_class(ServicerClass: Any, handler_impl: Any) -> A
 
 def init():
     project_dir = os.environ["CORTEX_PROJECT_DIR"]
-    spec_path = os.environ["CORTEX_API_SPEC"]
+    model_server_config_path = os.environ["CORTEX_MODEL_SERVER_CONFIG"]
 
     model_dir = os.getenv("CORTEX_MODEL_DIR")
     cache_dir = os.getenv("CORTEX_CACHE_DIR")
@@ -153,25 +153,12 @@ def init():
     tf_serving_port = os.getenv("CORTEX_TF_BASE_SERVING_PORT", "9000")
     tf_serving_host = os.getenv("CORTEX_TF_SERVING_HOST", "localhost")
 
-    has_multiple_servers = os.getenv("CORTEX_MULTIPLE_TF_SERVERS")
-    if has_multiple_servers:
-        with LockedFile("/run/used_ports.json", "r+") as f:
-            used_ports = json.load(f)
-            for port in used_ports.keys():
-                if not used_ports[port]:
-                    tf_serving_port = port
-                    used_ports[port] = True
-                    break
-            f.seek(0)
-            json.dump(used_ports, f)
-            f.truncate()
-
     datadog.initialize(statsd_host=host_ip, statsd_port=9125)
     statsd_client = datadog.statsd
 
-    with open(spec_path) as json_file:
-        api_spec = json.load(json_file)
-    api = RealtimeAPI(api_spec, statsd_client, model_dir)
+    with open(model_server_config_path) as yaml_file:
+        model_server_config = json.load(yaml_file)
+    api = RealtimeAPI(model_server_config, model_dir)
 
     config: Dict[str, Any] = {
         "api": None,

@@ -13,10 +13,11 @@
 # limitations under the License.
 
 from typing import List, Optional
+from cortex.cortex_internal.lib.type.type import TensorFlowHandlerType
 
 import cortex_internal.consts
 from cortex_internal.lib.model import find_all_s3_models
-from cortex_internal.lib.type import handler_type_from_api_spec, PythonHandlerType
+from cortex_internal.lib.type import handler_type_from_server_config, PythonHandlerType
 
 
 class CuratedModelResources:
@@ -105,19 +106,27 @@ class CuratedModelResources:
             return False
 
 
-def get_models_from_api_spec(
-    api_spec: dict, model_dir: str = "/mnt/model"
+def get_models_from_server_config(
+    model_server_config: dict, model_dir: str = "/mnt/model"
 ) -> CuratedModelResources:
     """
     Only effective for models:path, models:paths or for models:dir fields when the dir is a local path.
     It does not apply for when models:dir field is set to an S3 model path.
     """
-    handler_type = handler_type_from_api_spec(api_spec)
+    handler_type = handler_type_from_server_config(model_server_config)
 
-    if handler_type == PythonHandlerType and api_spec["handler"]["multi_model_reloading"]:
-        models_spec = api_spec["handler"]["multi_model_reloading"]
-    elif handler_type != PythonHandlerType:
-        models_spec = api_spec["handler"]["models"]
+    if (
+        handler_type == PythonHandlerType
+        and "multi_model_reloading" in model_server_config
+        and model_server_config["multi_model_reloading"] not in ["", None]
+    ):
+        models_spec = model_server_config["multi_model_reloading"]
+    elif (
+        handler_type == TensorFlowHandlerType
+        and "models" in model_server_config
+        and model_server_config["models"] not in ["", None]
+    ):
+        models_spec = model_server_config["models"]
     else:
         return CuratedModelResources([])
 

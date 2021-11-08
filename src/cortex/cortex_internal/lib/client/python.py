@@ -28,7 +28,7 @@ from cortex_internal.lib.model import (
     LockedModel,
     ModelsTree,
     LockedModelsTree,
-    get_models_from_api_spec,
+    get_models_from_server_config,
     find_ondisk_model_info,
     find_ondisk_models_with_lock,
 )
@@ -39,7 +39,7 @@ logger = configure_logger("cortex", os.environ["CORTEX_LOG_CONFIG_FILE"])
 class ModelClient:
     def __init__(
         self,
-        api_spec: dict,
+        model_server_config: dict,
         models: ModelsHolder,
         model_dir: str,
         models_tree: Optional[ModelsTree],
@@ -50,7 +50,7 @@ class ModelClient:
         Setup Python model client.
 
         Args:
-            api_spec: API configuration.
+            model_server_config: API configuration.
 
             models: Holding all models into memory.
             model_dir: Where the models are saved on disk.
@@ -60,24 +60,25 @@ class ModelClient:
             load_model_fn: Function to load model into memory.
         """
 
-        self._api_spec = api_spec
+        self._model_server_config = model_server_config
         self._models = models
         self._models_tree = models_tree
         self._model_dir = model_dir
         self._lock_dir = lock_dir
 
-        self._spec_models = get_models_from_api_spec(api_spec)
+        self._spec_models = get_models_from_server_config(model_server_config)
 
         if (
-            self._api_spec["handler"]["multi_model_reloading"]
-            and self._api_spec["handler"]["multi_model_reloading"]["dir"]
+            "multi_model_reloading" in self._model_server_config
+            and self._model_server_config["multi_model_reloading"] not in ["", None]
+            and self._model_server_config["multi_model_reloading"]["dir"]
         ):
             self._models_dir = True
         else:
             self._models_dir = False
             self._spec_model_names = self._spec_models.get_field("name")
 
-        self._multiple_processes = self._api_spec["handler"]["processes_per_replica"] > 1
+        self._multiple_processes = self._model_server_config["processes_per_replica"] > 1
         self._caching_enabled = self._is_model_caching_enabled()
 
         if callable(load_model_fn):
@@ -367,9 +368,10 @@ class ModelClient:
         Checks if model caching is enabled (models:cache_size and models:disk_cache_size).
         """
         return (
-            self._api_spec["handler"]["multi_model_reloading"]
-            and self._api_spec["handler"]["multi_model_reloading"]["cache_size"]
-            and self._api_spec["handler"]["multi_model_reloading"]["disk_cache_size"]
+            "multi_model_reloading" in self._model_server_config
+            and self._model_server_config["multi_model_reloading"] not in ["", None]
+            and self._model_server_config["multi_model_reloading"]["cache_size"]
+            and self._model_server_config["multi_model_reloading"]["disk_cache_size"]
         )
 
     @property

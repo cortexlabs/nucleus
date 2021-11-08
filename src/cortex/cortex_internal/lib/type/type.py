@@ -24,9 +24,9 @@ class HandlerType(collections.namedtuple("HandlerType", "type")):
 
 
 PythonHandlerType = HandlerType("python")
-
 TensorFlowHandlerType = HandlerType("tensorflow")
-TensorFlowNeuronHandlerType = HandlerType("tensorflow-neuron")
+# not needed because we don't allow for inf workloads
+# TensorFlowNeuronHandlerType = HandlerType("tensorflow-neuron")
 
 
 def handler_type_from_string(handler_type: str) -> HandlerType:
@@ -34,7 +34,7 @@ def handler_type_from_string(handler_type: str) -> HandlerType:
     Get handler type from string.
 
     Args:
-        handler_type: "python", "tensorflow" or "tensorflow-neuron"
+        handler_type: "python" or "tensorflow"
 
     Raises:
         ValueError if handler_type does not hold the right value.
@@ -42,20 +42,21 @@ def handler_type_from_string(handler_type: str) -> HandlerType:
     handler_types = [
         PythonHandlerType,
         TensorFlowHandlerType,
-        TensorFlowNeuronHandlerType,
+        # not needed because we don't allow for inf workloads
+        # TensorFlowNeuronHandlerType,
     ]
     for candidate in handler_types:
         if str(candidate) == handler_type:
             return candidate
-    raise ValueError("handler_type can only be 'python', 'tensorflow' or 'tensorflow-neuron'")
+    raise ValueError("handler_type can only be 'python' or 'tensorflow'")
 
 
 # TODO rename this to handler_type_from_server_config
-def handler_type_from_api_spec(model_server_config: dict) -> HandlerType:
+def handler_type_from_server_config(model_server_config: dict) -> HandlerType:
     """
-    Get handler type from API spec.
+    Get handler type from model server config.
     """
-    # not needed if we ignore inf workloads
+    # not needed because we don't allow for inf workloads
     # if api_spec["compute"]["inf"] > 0 and api_spec["handler"]["type"] == str(TensorFlowHandlerType):
     #     return handler_type_from_string("tensorflow-neuron")
     return handler_type_from_string(model_server_config["type"])

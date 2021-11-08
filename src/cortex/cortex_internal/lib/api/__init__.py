@@ -15,4 +15,4 @@
 from cortex_internal.lib.api.batch import BatchAPI
 from cortex_internal.lib.api.realtime import RealtimeAPI
 from cortex_internal.lib.api.task import TaskAPI
-from cortex_internal.lib.api.utils import get_spec, model_downloader, DynamicBatcher, CortexMetrics
+from cortex_internal.lib.api.utils import get_spec, model_downloader, DynamicBatcher

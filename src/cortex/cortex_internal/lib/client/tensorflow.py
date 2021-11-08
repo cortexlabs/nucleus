@@ -31,7 +31,7 @@ from cortex_internal.lib.model import (
     ModelsTree,
     LockedModel,
     LockedModelsTree,
-    get_models_from_api_spec,
+    get_models_from_server_config,
 )
 
 logger = configure_logger("cortex", os.environ["CORTEX_LOG_CONFIG_FILE"])
@@ -41,7 +41,7 @@ class TensorFlowClient:
     def __init__(
         self,
         tf_serving_url,
-        api_spec: dict,
+        model_server_config: dict,
         models: Optional[ModelsHolder] = None,
         model_dir: Optional[str] = None,
         models_tree: Optional[ModelsTree] = None,
@@ -51,7 +51,7 @@ class TensorFlowClient:
 
         Args:
             tf_serving_url: Localhost URL to TF Serving container (i.e. "localhost:9000")
-            api_spec: API configuration.
+            model_server_config: API configuration.
 
             models: Holding all models into memory. Only when processes_per_replica = 1 and caching enabled.
             model_dir: Where the models are saved on disk. Only when processes_per_replica = 1 and caching enabled.
@@ -60,23 +60,24 @@ class TensorFlowClient:
 
         self.tf_serving_url = tf_serving_url
 
-        self._api_spec = api_spec
+        self._model_server_config = model_server_config
         self._models = models
         self._models_tree = models_tree
         self._model_dir = model_dir
 
-        self._spec_models = get_models_from_api_spec(api_spec)
+        self._spec_models = get_models_from_server_config(model_server_config)
 
         if (
-            self._api_spec["handler"]["models"]
-            and self._api_spec["handler"]["models"]["dir"] is not None
+            "models" in self._model_server_config
+            and self._model_server_config["models"] not in ["", None]
+            and self._model_server_config["models"]["dir"] is not None
         ):
             self._models_dir = True
         else:
             self._models_dir = False
             self._spec_model_names = self._spec_models.get_field("name")
 
-        self._multiple_processes = self._api_spec["handler"]["processes_per_replica"] > 1
+        self._multiple_processes = self._model_server_config["processes_per_replica"] > 1
         self._caching_enabled = self._is_model_caching_enabled()
 
         if self._models:
@@ -393,7 +394,7 @@ class TensorFlowClient:
         Determine what's the signature key for a given model from API spec.
         """
         if self._models_dir:
-            return self._api_spec["handler"]["models"]["signature_key"]
+            return self._model_server_config["models"]["signature_key"]
         return self._spec_models[model_name]["signature_key"]
 
     def _get_latest_model_version_from_tree(self, model_name: str, model_info: dict) -> str:
@@ -409,9 +410,10 @@ class TensorFlowClient:
         Checks if model caching is enabled (models:cache_size and models:disk_cache_size).
         """
         return (
-            self._api_spec["handler"]["models"]
-            and self._api_spec["handler"]["models"]["cache_size"] is not None
-            and self._api_spec["handler"]["models"]["disk_cache_size"] is not None
+            "models" in self._model_server_config
+            and self._model_server_config["models"] not in ["", None]
+            and self._model_server_config["models"]["cache_size"] is not None
+            and self._model_server_config["models"]["disk_cache_size"] is not None
         )
 
     @property

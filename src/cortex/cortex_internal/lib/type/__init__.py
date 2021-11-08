@@ -18,5 +18,5 @@ from cortex_internal.lib.type.type import (
     TensorFlowNeuronHandlerType,
     HandlerType,
     handler_type_from_string,
-    handler_type_from_api_spec,
+    handler_type_from_server_config,
 )

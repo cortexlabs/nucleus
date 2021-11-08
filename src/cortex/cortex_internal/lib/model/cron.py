@@ -40,16 +40,15 @@ from cortex_internal.lib.model import (
     ids_to_models,
     LockedGlobalModelsGC,
     LockedModel,
-    get_models_from_api_spec,
+    get_models_from_server_config,
     ModelsTree,
 )
 from cortex_internal.lib.storage import S3
 from cortex_internal.lib.telemetry import get_default_tags, init_sentry
 from cortex_internal.lib.type import (
-    handler_type_from_api_spec,
+    handler_type_from_server_config,
     PythonHandlerType,
     TensorFlowHandlerType,
-    TensorFlowNeuronHandlerType,
 )
 
 logger = configure_logger("cortex", os.environ["CORTEX_LOG_CONFIG_FILE"])
@@ -137,18 +136,26 @@ class FileBasedModelsTreeUpdater(mp.Process):
         self._lock_dir = lock_dir
 
         self._s3_paths = []
-        self._spec_models = get_models_from_api_spec(self._model_server_config)
+        self._spec_models = get_models_from_server_config(self._model_server_config)
         self._s3_model_names = self._spec_models.get_s3_model_names()
         for model_name in self._s3_model_names:
             self._s3_paths.append(self._spec_models[model_name]["path"])
 
-        self._handler_type = handler_type_from_api_spec(self._model_server_config)
+        self._handler_type = handler_type_from_server_config(self._model_server_config)
 
         models = None
-        if "multi_model_reloading" in self._model_server_config and self._model_server_config[
-            "multi_model_reloading"
-        ] not in ["", None]:
+        if (
+            self._handler_type == PythonHandlerType
+            and "multi_model_reloading" in self._model_server_config
+            and self._model_server_config["multi_model_reloading"] not in ["", None]
+        ):
             models = self._model_server_config["multi_model_reloading"]
+        if (
+            self._handler_type == TensorFlowHandlerType
+            and "models" in self._model_server_config
+            and self._model_server_config["models"] not in ["", None]
+        ):
+            models = self._model_server_config["models"]
 
         if models is None:
             raise CortexException("no specified model")
@@ -670,18 +677,18 @@ class TFSModelLoader(mp.Process):
             self._tfs_addresses = addresses
 
         self._s3_paths = []
-        self._spec_models = get_models_from_api_spec(self._model_server_config)
+        self._spec_models = get_models_from_server_config(self._model_server_config)
         self._s3_model_names = self._spec_models.get_s3_model_names()
         for model_name in self._s3_model_names:
             self._s3_paths.append(self._spec_models[model_name]["path"])
 
         if (
-            "multi_model_reloading" in self._model_server_config
-            and self._model_server_config["multi_model_reloading"] is not None
-            and self._model_server_config["multi_model_reloading"]["dir"] is not None
+            "models" in self._model_server_config
+            and self._model_server_config["models"] is not None
+            and self._model_server_config["models"]["dir"] is not None
         ):
             self._is_dir_used = True
-            self._models_dir = self._model_server_config["multi_model_reloading"]["dir"]
+            self._models_dir = self._model_server_config["models"]["dir"]
         else:
             self._is_dir_used = False
             self._models_dir = None
@@ -1213,25 +1220,25 @@ class ModelsGC(AbstractLoopingThread):
     def __init__(
         self,
         interval: int,
-        api_spec: dict,
+        model_server_config: dict,
         models: ModelsHolder,
         tree: ModelsTree,
     ):
         """
         Args:
             interval: How often to update the models tree. Measured in seconds.
-            api_spec: Identical copy of pkg.type.spec.api.API.
+            model_server_config: Identical copy of pkg.type.spec.api.API.
             models: The object holding all models in memory / on disk.
             tree: Model tree representation of the available models on the S3 upstream.
         """
 
         AbstractLoopingThread.__init__(self, interval, self._run_gc)
 
-        self._api_spec = api_spec
+        self._model_server_config = model_server_config
         self._models = models
         self._tree = tree
 
-        self._spec_models = get_models_from_api_spec(self._api_spec)
+        self._spec_models = get_models_from_server_config(self._model_server_config)
 
         # run the cron every 10 seconds
         self._lock_timeout = 10.0
@@ -1349,36 +1356,43 @@ class ModelTreeUpdater(AbstractLoopingThread):
     Model tree updater. Updates a local representation of all available models from the S3 upstreams.
     """
 
-    def __init__(self, interval: int, api_spec: dict, tree: ModelsTree, ondisk_models_dir: str):
+    def __init__(
+        self, interval: int, model_server_config: dict, tree: ModelsTree, ondisk_models_dir: str
+    ):
         """
         Args:
             interval: How often to update the models tree. Measured in seconds.
-            api_spec: Identical copy of pkg.type.spec.api.API.
+            model_server_config: Identical copy of pkg.type.spec.api.API.
             tree: Model tree representation of the available models on S3.
             ondisk_models_dir: Where the models are stored on disk. Necessary when local models are used.
         """
 
         AbstractLoopingThread.__init__(self, interval, self._update_models_tree)
 
-        self._api_spec = api_spec
+        self._model_server_config = model_server_config
         self._tree = tree
         self._ondisk_models_dir = ondisk_models_dir
 
         self._s3_paths = []
-        self._spec_models = get_models_from_api_spec(self._api_spec)
+        self._spec_models = get_models_from_server_config(self._model_server_config)
         self._s3_model_names = self._spec_models.get_s3_model_names()
         for model_name in self._s3_model_names:
             self._s3_paths.append(self._spec_models[model_name]["path"])
 
-        self._handler_type = handler_type_from_api_spec(self._api_spec)
+        self._handler_type = handler_type_from_server_config(self._model_server_config)
 
         if (
             self._handler_type == PythonHandlerType
-            and self._api_spec["handler"]["multi_model_reloading"]
+            and "multi_model_reloading" in self._model_server_config
+            and self._model_server_config["multi_model_reloading"] not in ["", None]
         ):
-            models = self._api_spec["handler"]["multi_model_reloading"]
-        elif self._handler_type != PythonHandlerType:
-            models = self._api_spec["handler"]["models"]
+            models = self._model_server_config["multi_model_reloading"]
+        elif (
+            self._handler_type == TensorFlowHandlerType
+            and "models" in self._model_server_config
+            and self._model_server_config["models"] not in ["", None]
+        ):
+            models = self._model_server_config["models"]
         else:
             models = None
 

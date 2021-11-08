@@ -35,7 +35,7 @@ from starlette.responses import JSONResponse, PlainTextResponse, Response
 
 from cortex_internal.lib import util
 from cortex_internal.lib.api import DynamicBatcher, RealtimeAPI
-from cortex_internal.lib.concurrency import FileLock, LockedFile
+from cortex_internal.lib.concurrency import FileLock
 from cortex_internal.lib.exceptions import UserException, UserRuntimeException
 from cortex_internal.lib.log import configure_logger
 from cortex_internal.lib.metrics import MetricsClient
@@ -271,25 +271,12 @@ def start_fn():
     tf_serving_host = os.getenv("CORTEX_TF_SERVING_HOST", "localhost")
 
     try:
-        has_multiple_servers = os.getenv("CORTEX_MULTIPLE_TF_SERVERS")
-        if has_multiple_servers:
-            with LockedFile("/run/used_ports.json", "r+") as f:
-                used_ports = json.load(f)
-                for port in used_ports.keys():
-                    if not used_ports[port]:
-                        tf_serving_port = port
-                        used_ports[port] = True
-                        break
-                f.seek(0)
-                json.dump(used_ports, f)
-                f.truncate()
-
         datadog.initialize(statsd_host=host_ip, statsd_port=9125)
         statsd_client = datadog.statsd
 
         with open(spec_path) as json_file:
             api_spec = json.load(json_file)
-        api = RealtimeAPI(api_spec, statsd_client, model_dir)
+        api = RealtimeAPI(api_spec, model_dir)
 
         client = api.initialize_client(
             tf_serving_host=tf_serving_host, tf_serving_port=tf_serving_port
@@ -327,7 +314,7 @@ def start_fn():
             )
 
         if api.python_server_side_batching_enabled:
-            dynamic_batching_config = api.api_spec["handler"]["server_side_batching"]
+            dynamic_batching_config = api._model_server_config["handler"]["server_side_batching"]
 
             if "post" in local_cache["handle_fn_args"]:
                 local_cache["dynamic_batcher"] = DynamicBatcher(
