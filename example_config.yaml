@@ -5,7 +5,7 @@ gpu:
   cudnn: none # none / some version
 python_path: <string>  # path to the root of your Python folder that will be appended to PYTHONPATH (default: folder containing cortex.yaml)
 protobuf_path: <string>  # path to a protobuf file (required if using gRPC)
-multi_model_reloading:  # use this to serve one or more models with live reloading (optional)
+models:  # use this to serve one or more models with live reloading (optional)
   path: <string> # S3 path to an exported model directory (e.g. s3://my-bucket/exported_model/) (either this, 'dir', or 'paths' must be provided if 'multi_model_reloading' is specified)
   paths:  # list of S3 paths to exported model directories (either this, 'dir', or 'path' must be provided if 'multi_model_reloading' is specified)
     - name: <string>  # unique name for the model (e.g. text-generator) (required)

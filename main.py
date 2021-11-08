@@ -63,7 +63,7 @@ def validate_config(config: dict):
     if "server_side_batching" in config:
         if "max_batch_size" not in config["server_side_batching"]:
             raise RuntimeError("server_side_batching: missing 'max_batch_size' field")
-        if "batch_interval" not in config["batch_interval"]:
+        if "batch_interval" not in config["server_side_batching"]:
             raise RuntimeError("server_side_batching: missing 'batch_interval' field")
         if not isinstance(config["server_side_batching"]["max_batch_size"], int):
             raise RuntimeError("server_side_batching: 'max_batch_size' field isn't of type 'int'")
@@ -118,13 +118,7 @@ def validate_config(config: dict):
         raise RuntimeError("gpu: both 'cuda' and 'cudnn' fields must be specified")
 
 
-def build_dockerfile_images(config: dict, path_to_config: str) -> List[str]:
-    validate_config(config)
-
-    # if using the local files or the git clone in the Dockerfiles
-    dev_env = config["dev"]
-
-    # get handler template
+def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -> str:
     handler_template = pkgutil.get_data(__name__, "templates/handler.Dockerfile")
     base_image = "ubuntu:18.04"
     cortex_image_type = "python-handler-cpu"
@@ -186,6 +180,69 @@ def build_dockerfile_images(config: dict, path_to_config: str) -> List[str]:
         'ENTRYPOINT ["/init"]',
     ]
 
+    handler_dockerfile = "\n".join(handler_lines)
+    return handler_dockerfile
+
+
+def build_tensorflow_dockerfile(
+    config: dict, tfs_template_lines: List[bytes], dev_env: bool
+) -> str:
+    tfs_lines = [line.decode("utf-8") for line in tfs_template_lines]
+
+    tf_base_serving_port = 9000
+    tf_empty_model_config = "/etc/tfs/model_config_server.conf"
+    tf_max_num_load_retries = "0"
+    tf_load_time_micros = "30000000"
+    grpc_channel_arguments = (
+        int(config["processes_per_replica"]) * int(config["threads_per_process"]) + 10
+    )
+    batch_params_file = "/etc/tfs/batch_config.conf"
+
+    if dev_env:
+        tfs_lines += [
+            "COPY templates/tfs-run.sh /src/",
+        ]
+    else:
+        tfs_lines += [
+            "RUN git clone --depth 1 https://github.com/robertlucian/cortex-templates \\",
+            "    cp cortex-templates/data/tfs-run.sh /src/ && \\",
+            "    rm -r cortex-templates/",
+        ]
+    tfs_lines += [
+        "RUN chmod +x /src/tfs-run.sh",
+        "",
+    ]
+    if (
+        "server_side_batching" in config
+        and config["server_side_batching"]["max_batch_size"]
+        and config["server_side_batching"]["batch_interval"]
+    ):
+        tfs_lines += [
+            f"ENV TF_MAX_BATCH_SIZE={config['server_side_batching']['max_batch_size']}",
+            f"    TF_BATCH_TIMEOUT_MICROS={int(float(config['server_side_batching']['batch_interval']) * 1000000)}",
+            f"    TF_NUM_BATCHED_THREADS={config['processes_per_replica']}",
+            "",
+            f"ENTRYPOINT ['/src/run.sh', '--port={tf_base_serving_port}', '--model_config_file={tf_empty_model_config}', '--max_num_load_retries={tf_max_num_load_retries}', '--load_retry_interval_micros={tf_load_time_micros}', '--grpc_channel_arguments=\"grpc.max_concurrent_streams={grpc_channel_arguments}\"', '--enable_batching=true', '--batching_parameters_file={batch_params_file}']",
+        ]
+    else:
+        tfs_lines += [
+            f"ENTRYPOINT ['/src/run.sh', '--port={tf_base_serving_port}', '--model_config_file={tf_empty_model_config}', '--max_num_load_retries={tf_max_num_load_retries}', '--load_retry_interval_micros={tf_load_time_micros}', '--grpc_channel_arguments=\"grpc.max_concurrent_streams={grpc_channel_arguments}\"']"
+        ]
+
+    tensorflow_dockerfile = "\n".join(tfs_lines)
+    return tensorflow_dockerfile
+
+
+def build_dockerfile_images(config: dict, path_to_config: str) -> List[str]:
+    validate_config(config)
+
+    # if using the local files or the git clone in the Dockerfiles
+    dev_env = config["dev"]
+
+    # get handler template
+    handler_dockerfile = build_handler_dockerfile(config, path_to_config, dev_env)
+    click.echo(handler_dockerfile)
+
     # get tfs template
     tfs_dockerfile = None
     if (
@@ -194,56 +251,15 @@ def build_dockerfile_images(config: dict, path_to_config: str) -> List[str]:
         and config["gpu"]["cudnn"] not in ["", None]
     ):
         tfs_dockerfile = pkgutil.get_data(__name__, "templates/tfs-gpu.Dockerfile")
-        tfs_lines = tfs_dockerfile.splitlines()
+        tfs_template_lines = tfs_dockerfile.splitlines()
     elif config["type"] == "tensorflow":
         tfs_dockerfile = pkgutil.get_data(__name__, "templates/tfs-cpu.Dockerfile")
-        tfs_lines = tfs_dockerfile.splitlines()
+        tfs_template_lines = tfs_dockerfile.splitlines()
 
     # create tfs dockerfile
     if tfs_dockerfile:
-        tfs_lines = [line.decode("utf-8") for line in tfs_lines]
-
-        tf_base_serving_port = 9000
-        tf_empty_model_config = "/etc/tfs/model_config_server.conf"
-        tf_max_num_load_retries = "0"
-        tf_load_time_micros = "30000000"
-        grpc_channel_arguments = (
-            int(config["processes_per_replica"]) * int(config["threads_per_process"]) + 10
-        )
-        batch_params_file = "/etc/tfs/batch_config.conf"
-
-        if dev_env:
-            tfs_lines += [
-                "COPY templates/tfs-run.sh /src/",
-            ]
-        else:
-            tfs_lines += [
-                "RUN git clone --depth 1 https://github.com/robertlucian/cortex-templates \\",
-                "    cp cortex-templates/data/tfs-run.sh /src/ && \\",
-                "    rm -r cortex-templates/",
-            ]
-        tfs_lines += [
-            "RUN chmod +x /src/tfs-run.sh",
-            "",
-        ]
-        if (
-            "server_side_batching" in config
-            and config["server_side_batching"]["max_batch_size"]
-            and config["server_side_batching"]["batch_interval"]
-        ):
-            tfs_lines += [
-                f"ENV TF_MAX_BATCH_SIZE={config['server_side_batching']['max_batch_size']}",
-                f"    TF_BATCH_TIMEOUT_MICROS={int(float(config['server_side_batching']['batch_interval']) * 1000000)}",
-                f"    TF_NUM_BATCHED_THREADS={config['processes_per_replica']}",
-                "",
-                f"ENTRYPOINT ['/src/run.sh', '--port={tf_base_serving_port}', '--model_config_file={tf_empty_model_config}', '--max_num_load_retries={tf_max_num_load_retries}', '--load_retry_interval_micros={tf_load_time_micros}', '--grpc_channel_arguments=\"grpc.max_concurrent_streams={grpc_channel_arguments}\"', '--enable_batching=true', '--batching_parameters_file={batch_params_file}']",
-            ]
-        else:
-            tfs_lines += [
-                f"ENTRYPOINT ['/src/run.sh', '--port={tf_base_serving_port}', '--model_config_file={tf_empty_model_config}', '--max_num_load_retries={tf_max_num_load_retries}', '--load_retry_interval_micros={tf_load_time_micros}', '--grpc_channel_arguments=\"grpc.max_concurrent_streams={grpc_channel_arguments}\"']"
-            ]
-        # click.echo("\n".join(tfs_lines))
-    click.echo("\n".join(handler_lines))
+        tensorflow_dockerfile = build_tensorflow_dockerfile(config, tfs_template_lines, dev_env)
+        click.echo(tensorflow_dockerfile)
 
 
 @click.command(help="A Cortex utility to build model servers without caring about dockerfiles")
