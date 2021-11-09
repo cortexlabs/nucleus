@@ -82,7 +82,6 @@ def main(model_server_config_path: str):
         "CORTEX_MODEL_DIR": "/mnt/model",
         "CORTEX_LOG_CONFIG_FILE": "/src/cortex/serve/log_config.yaml",
         "CORTEX_PYTHON_PATH": "/mnt/project",
-        "HOST_IP": os.environ.get("HOST_IP", "localhost"),
     }
     env_vars.update(extract_from_handler(server_config))
 

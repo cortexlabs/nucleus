@@ -19,7 +19,6 @@ from copy import deepcopy
 from typing import List, Optional, Union, Any
 
 import dill
-from datadog import DogStatsd
 
 from cortex_internal.lib.api.utils import model_downloader
 from cortex_internal.lib.api.validations import (
@@ -51,7 +50,7 @@ PYTHON_CLASS_VALIDATION = {
             {
                 "name": "__init__",
                 "required_args": ["self", "config"],
-                "optional_args": ["model_client", "metrics_client"],
+                "optional_args": ["model_client"],
             },
         ],
         "optional": [
@@ -77,7 +76,7 @@ PYTHON_CLASS_VALIDATION = {
             {
                 "name": "__init__",
                 "required_args": ["self", "config", "proto_module_pb2"],
-                "optional_args": ["model_client", "metrics_client"],
+                "optional_args": ["model_client"],
             },
         ],
         "optional": [
@@ -95,7 +94,7 @@ TENSORFLOW_CLASS_VALIDATION = {
             {
                 "name": "__init__",
                 "required_args": ["self", "config", "tensorflow_client"],
-                "optional_args": ["metrics_client"],
+                "optional_args": [],
             },
         ],
         "optional": [
@@ -117,7 +116,7 @@ TENSORFLOW_CLASS_VALIDATION = {
             {
                 "name": "__init__",
                 "required_args": ["self", "config", "proto_module_pb2", "tensorflow_client"],
-                "optional_args": ["metrics_client"],
+                "optional_args": [],
             },
         ],
     },
@@ -224,7 +223,6 @@ class RealtimeAPI:
         self,
         project_dir: str,
         client: Union[ModelClient, TensorFlowClient],
-        metrics_client: DogStatsd,
         proto_module_pb2: Optional[Any] = None,
         rpc_method_names: Optional[List[str]] = None,
     ):
@@ -244,8 +242,6 @@ class RealtimeAPI:
         args = {}
         if "config" in constructor_args:
             args["config"] = config
-        if "metrics_client" in constructor_args:
-            args["metrics_client"] = metrics_client
         if "proto_module_pb2" in constructor_args:
             args["proto_module_pb2"] = proto_module_pb2
 

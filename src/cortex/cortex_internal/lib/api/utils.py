@@ -23,9 +23,8 @@ import time
 import traceback
 from collections import defaultdict
 from http import HTTPStatus
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 
-from datadog.dogstatsd.base import DogStatsd
 from starlette.responses import Response
 
 from cortex_internal.lib import util

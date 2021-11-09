@@ -25,7 +25,6 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict
 
-import datadog
 from asgiref.sync import async_to_sync
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -38,7 +37,6 @@ from cortex_internal.lib.api import DynamicBatcher, RealtimeAPI
 from cortex_internal.lib.concurrency import FileLock
 from cortex_internal.lib.exceptions import UserException, UserRuntimeException
 from cortex_internal.lib.log import configure_logger
-from cortex_internal.lib.metrics import MetricsClient
 from cortex_internal.lib.telemetry import capture_exception, get_default_tags, init_sentry
 
 init_sentry(tags=get_default_tags())
@@ -127,13 +125,6 @@ async def register_request(request: Request, call_next):
                 os.remove(file_id)
             except FileNotFoundError:
                 pass
-
-        if is_allowed_request(request):
-            status_code = 500
-            if response is not None:
-                status_code = response.status_code
-            api: RealtimeAPI = local_cache["api"]
-            api.metrics.post_request_metrics(status_code, time.time() - request.state.start_time)
 
     return response
 
@@ -266,14 +257,10 @@ def start_fn():
     project_dir = os.environ["CORTEX_PROJECT_DIR"]
     spec_path = os.environ["CORTEX_API_SPEC"]
     model_dir = os.getenv("CORTEX_MODEL_DIR")
-    host_ip = os.environ["HOST_IP"]
     tf_serving_port = os.getenv("CORTEX_TF_BASE_SERVING_PORT", "9000")
     tf_serving_host = os.getenv("CORTEX_TF_SERVING_HOST", "localhost")
 
     try:
-        datadog.initialize(statsd_host=host_ip, statsd_port=9125)
-        statsd_client = datadog.statsd
-
         with open(spec_path) as json_file:
             api_spec = json.load(json_file)
         api = RealtimeAPI(api_spec, model_dir)
@@ -284,9 +271,7 @@ def start_fn():
 
         with FileLock("/run/init_stagger.lock"):
             logger.info("loading the handler from {}".format(api.path))
-            handler_impl = api.initialize_impl(
-                project_dir=project_dir, client=client, metrics_client=MetricsClient(statsd_client)
-            )
+            handler_impl = api.initialize_impl(project_dir=project_dir, client=client)
 
         # crons only stop if an unhandled exception occurs
         def check_if_crons_have_failed():

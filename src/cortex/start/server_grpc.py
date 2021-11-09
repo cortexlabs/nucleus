@@ -24,9 +24,8 @@ import time
 import traceback
 import uuid
 from concurrent import futures
-from typing import Callable, Dict, Any, List
+from typing import Dict, Any, List
 
-import datadog
 import grpc
 from grpc_reflection.v1alpha import reflection
 
@@ -34,23 +33,19 @@ from cortex_internal.lib.api import RealtimeAPI
 from cortex_internal.lib.concurrency import FileLock
 from cortex_internal.lib.exceptions import UserRuntimeException
 from cortex_internal.lib.log import configure_logger
-from cortex_internal.lib.metrics import MetricsClient
 from cortex_internal.lib.telemetry import capture_exception, get_default_tags, init_sentry
 
 NANOSECONDS_IN_SECOND = 1e9
 
 
 class ThreadPoolExecutorWithRequestMonitor:
-    def __init__(self, post_latency_metrics_fn: Callable[[int, float], None], *args, **kwargs):
-        self._post_latency_metrics_fn = post_latency_metrics_fn
+    def __init__(self, *args, **kwargs):
         self._thread_pool_executor = futures.ThreadPoolExecutor(*args, **kwargs)
 
     def submit(self, fn, *args, **kwargs):
         request_id = uuid.uuid1()
         file_id = f"/mnt/requests/{request_id}"
         open(file_id, "a").close()
-
-        start_time = time.time()
 
         def wrapper_fn(*args, **kwargs):
             try:
@@ -62,7 +57,6 @@ class ThreadPoolExecutorWithRequestMonitor:
                     os.remove(file_id)
                 except FileNotFoundError:
                     pass
-                self._post_latency_metrics_fn(time.time() - start_time)
 
             return result
 
@@ -129,10 +123,8 @@ def construct_handler_servicer_class(ServicerClass: Any, handler_impl: Any) -> A
             try:
                 kwargs = build_method_kwargs(arg_spec, payload, context)
                 response = getattr(self.handler_impl, rpc_name)(**kwargs)
-                self.api.metrics.post_status_code_request_metrics(200)
             except Exception:
                 logger.error(traceback.format_exc())
-                self.api.metrics.post_status_code_request_metrics(500)
                 context.abort(grpc.StatusCode.INTERNAL, "internal server error")
             return response
 
@@ -149,12 +141,8 @@ def init():
     cache_dir = os.getenv("CORTEX_CACHE_DIR")
     region = os.getenv("AWS_DEFAULT_REGION")
 
-    host_ip = os.environ["HOST_IP"]
     tf_serving_port = os.getenv("CORTEX_TF_BASE_SERVING_PORT", "9000")
     tf_serving_host = os.getenv("CORTEX_TF_SERVING_HOST", "localhost")
-
-    datadog.initialize(statsd_host=host_ip, statsd_port=9125)
-    statsd_client = datadog.statsd
 
     with open(model_server_config_path) as yaml_file:
         model_server_config = json.load(yaml_file)
@@ -180,8 +168,6 @@ def init():
         logger.info("loading the handler from {}".format(api.path))
         handler_impl = api.initialize_impl(
             project_dir=project_dir,
-            client=client,
-            metrics_client=MetricsClient(statsd_client),
             proto_module_pb2=module_proto_pb2,
             rpc_method_names=rpc_names,
         )
@@ -229,7 +215,6 @@ def main():
 
     server = grpc.server(
         ThreadPoolExecutorWithRequestMonitor(
-            post_latency_metrics_fn=api.metrics.post_latency_request_metrics,
             max_workers=threads_per_process,
         ),
         options=[("grpc.max_send_message_length", -1), ("grpc.max_receive_message_length", -1)],

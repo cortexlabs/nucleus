@@ -26,8 +26,8 @@ def validate_config(config: dict):
     if "py_version" not in config:
         config["py_version"] = "3.6.9"
 
-    if "dev" not in config:
-        config["dev"] = False
+    if "use_local_cortex_libs" not in config:
+        config["use_local_cortex_libs"] = False
 
     if "log_level" not in config:
         config["log_level"] = "info"
@@ -111,11 +111,11 @@ def validate_config(config: dict):
                 if "path" not in path:
                     raise RuntimeError(f"{models_fieldname}: paths: {idx}: path field required")
 
-    if "gpu" in config and (
-        ("cuda" in config["gpu"] and "cudnn" not in config["gpu"])
-        or ("cuda" in config["gpu"] and "cudnn" not in config["gpu"])
+    if "gpu_version" in config and (
+        ("cuda" in config["gpu_version"] and "cudnn" not in config["gpu_version"])
+        or ("cuda" in config["gpu_version"] and "cudnn" not in config["gpu_version"])
     ):
-        raise RuntimeError("gpu: both 'cuda' and 'cudnn' fields must be specified")
+        raise RuntimeError("gpu_version: both 'cuda' and 'cudnn' fields must be specified")
 
 
 def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -> str:
@@ -237,7 +237,7 @@ def build_dockerfile_images(config: dict, path_to_config: str) -> List[str]:
     validate_config(config)
 
     # if using the local files or the git clone in the Dockerfiles
-    dev_env = config["dev"]
+    dev_env = config["use_local_cortex_libs"]
 
     # get handler template
     handler_dockerfile = build_handler_dockerfile(config, path_to_config, dev_env)
