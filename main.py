@@ -7,6 +7,10 @@ import yaml
 import click
 
 
+class CortexModelServerBuilder(RuntimeError):
+    pass
+
+
 def read_model_server_config(file) -> dict:
     """
     Read the cortex model server config file.
@@ -62,18 +66,30 @@ def validate_config(config: dict):
 
     if "server_side_batching" in config:
         if "max_batch_size" not in config["server_side_batching"]:
-            raise RuntimeError("server_side_batching: missing 'max_batch_size' field")
+            raise CortexModelServerBuilder("server_side_batching: missing 'max_batch_size' field")
         if "batch_interval" not in config["server_side_batching"]:
-            raise RuntimeError("server_side_batching: missing 'batch_interval' field")
+            raise CortexModelServerBuilder("server_side_batching: missing 'batch_interval' field")
         if not isinstance(config["server_side_batching"]["max_batch_size"], int):
-            raise RuntimeError("server_side_batching: 'max_batch_size' field isn't of type 'int'")
+            raise CortexModelServerBuilder(
+                "server_side_batching: 'max_batch_size' field isn't of type 'int'"
+            )
         if not isinstance(config["server_side_batching"]["batch_interval"], float):
-            raise RuntimeError("server_side_batching: 'batch_interval' field isn't of type 'float'")
+            raise CortexModelServerBuilder(
+                "server_side_batching: 'batch_interval' field isn't of type 'float'"
+            )
+
+    if "path" not in config:
+        raise CortexModelServerBuilder("'path' field missing")
+
+    if "python_path" not in config:
+        config["python_path"] = "."
 
     if config["type"] == "python" and "models" in config:
-        raise RuntimeError("'models' field not supported for 'python' type")
+        raise CortexModelServerBuilder("'models' field not supported for 'python' type")
     if config["type"] == "tensorflow" and "multi_model_reloading" in config:
-        raise RuntimeError("'multi_model_reloading' field not supported for 'tensorflow' type")
+        raise CortexModelServerBuilder(
+            "'multi_model_reloading' field not supported for 'tensorflow' type"
+        )
 
     models_fieldname: str
     if config["type"] == "python":
@@ -87,7 +103,9 @@ def validate_config(config: dict):
             or ("paths" in config and ("path" in config or "dir" in config))
             or ("dir" in config and ("paths" in config or "path" in config))
         ):
-            raise RuntimeError(f"{models_fieldname}: can only specify 'path', 'paths' or 'dir'")
+            raise CortexModelServerBuilder(
+                f"{models_fieldname}: can only specify 'path', 'paths' or 'dir'"
+            )
 
         if (
             "cache_size" in config[models_fieldname]
@@ -96,26 +114,32 @@ def validate_config(config: dict):
             "cache_size" not in config[models_fieldname]
             and "disk_cache_size" in config[models_fieldname]
         ):
-            raise RuntimeError(
+            raise CortexModelServerBuilder(
                 f"{models_fieldname}: when the cache is configured, both 'cache_size' and 'disk_cache_size' fields must be specified"
             )
 
         if "paths" in config[models_fieldname]:
             if len(config[models_fieldname]["paths"]) == 0:
-                raise RuntimeError(
+                raise CortexModelServerBuilder(
                     f"{models_fieldname}: if the 'path' field list is specified, then its length must be at least 1"
                 )
             for idx, path in enumerate(config[models_fieldname]["paths"]):
                 if "name" not in path:
-                    raise RuntimeError(f"{models_fieldname}: paths: {idx}: name field required")
+                    raise CortexModelServerBuilder(
+                        f"{models_fieldname}: paths: {idx}: name field required"
+                    )
                 if "path" not in path:
-                    raise RuntimeError(f"{models_fieldname}: paths: {idx}: path field required")
+                    raise CortexModelServerBuilder(
+                        f"{models_fieldname}: paths: {idx}: path field required"
+                    )
 
     if "gpu_version" in config and (
         ("cuda" in config["gpu_version"] and "cudnn" not in config["gpu_version"])
         or ("cuda" in config["gpu_version"] and "cudnn" not in config["gpu_version"])
     ):
-        raise RuntimeError("gpu_version: both 'cuda' and 'cudnn' fields must be specified")
+        raise CortexModelServerBuilder(
+            "gpu_version: both 'cuda' and 'cudnn' fields must be specified"
+        )
 
 
 def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -> str:
@@ -124,8 +148,9 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
     cortex_image_type = "python-handler-cpu"
     if (
         config["type"] == "python"
-        and config["gpu"]["cuda"] not in ["", None]
-        and config["gpu"]["cudnn"] not in ["", None]
+        and "gpu_version" in config
+        and config["gpu_version"]["cuda"] not in ["", None]
+        and config["gpu_version"]["cudnn"] not in ["", None]
     ):
         base_image = (
             f"nvidia/cuda:{config['gpu']['cuda']}-cudnn{config['gpu']['cudnn']}-runtime-ubuntu18.04"
@@ -146,7 +171,11 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
 
     # create handler dockerfile
     if dev_env:
-        handler_lines += ["COPY src/ /src/", ""]
+        handler_lines += [
+            "COPY /src/cortex/serve.requirements.txt /src/cortex/serve.requirements.txt",
+            "COPY /src/cortex/cortex_internal.requirements.txt /src/cortex/cortex_internal.requirements.txt",
+            "",
+        ]
     else:
         handler_lines += [
             "RUN git clone --depth 1 https://github.com/robertlucian/cortex-templates && \\",
@@ -155,22 +184,28 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
             "",
         ]
 
-    project_dir = pathlib.Path(path_to_config).parent.absolute()
+    project_dir = pathlib.Path(path_to_config).parent.relative_to(".")
     config_filename = pathlib.Path(path_to_config).name
     handler_lines += [
         "RUN pip install --no-cache-dir \\",
-        "    -r /src/cortex/serve/serve.requirements.txt \\",
-        "    -r /src/cortex/serve/cortex_internal.requirements.txt",
-        "RUN cp /src/cortex/serve/init/install-core-dependencies.sh /usr/local/cortex/install-core-dependencies.sh && \\",
+        "    -r /src/cortex/serve.requirements.txt \\",
+        "    -r /src/cortex/cortex_internal.requirements.txt",
+    ]
+    if dev_env:
+        handler_lines += ["", "COPY src/ /src/"]
+    handler_lines += [
+        "RUN mkdir -p /usr/local/cortex/ && \\",
+        "    cp /src/cortex/init/install-core-dependencies.sh /usr/local/cortex/install-core-dependencies.sh && \\",
+        "    chmod +x /usr/local/cortex/install-core-dependencies.sh && \\",
         "    /usr/local/cortex/install-core-dependencies.sh",
-        "ENV CORTEX_LOG_CONFIG_FILE /src/cortex/serve/log_config.yaml",
+        "ENV CORTEX_LOG_CONFIG_FILE /src/cortex/log_config.yaml",
         "",
-        "RUN pip install --no-deps /src/cortex/serve/ && \\",
-        "    mv /src/cortex/serve/init/bootloader.sh /etc/cont-init.d/bootloader.sh",
+        "RUN pip install --no-deps /src/cortex/ && \\",
+        "    mv /src/cortex/init/bootloader.sh /etc/cont-init.d/bootloader.sh",
         "",
         f"COPY {project_dir}/ /mnt/project/",
         f"ENV CORTEX_MODEL_SERVER_CONFIG /mnt/project/{config_filename}" "",
-        f"RUN eval $(/opt/conda/envs/env/bin/python /src/cortex/serve/init/export_env_vars.py /mnt/project/{config_filename} && \\",
+        f"RUN eval $(/opt/conda/envs/env/bin/python /src/cortex/init/export_env_vars.py /mnt/project/{config_filename}) && \\",
         f'    if [ -f "/mnt/project/.env" ]; then set -a; source /mnt/project/.env; set +a; fi && \\',
         '    if [ -f "/mnt/project/${CORTEX_DEPENDENCIES_SHELL}" ]; then bash -e "/mnt/project/${CORTEX_DEPENDENCIES_SHELL}"; fi && \\',
         '    if [ -f "/mnt/project/${CORTEX_DEPENDENCIES_CONDA}" ]; then conda config --append channels conda-forge && conda install -y --file "/mnt/project/${CORTEX_DEPENDENCIES_CONDA}"; fi && \\',
@@ -233,15 +268,25 @@ def build_tensorflow_dockerfile(
     return tensorflow_dockerfile
 
 
-def build_dockerfile_images(config: dict, path_to_config: str) -> List[str]:
+def build_dockerfile_images(
+    config: dict, path_to_config: str, dockerfile_output_prefix: str
+) -> List[str]:
     validate_config(config)
+
+    click.echo("generating dockerfiles for the following model server config")
+    click.echo("--------------------------------------------------------->")
+    click.echo(yaml.dump(config, indent=2, sort_keys=False))
+    click.echo("--------------------------------------------------------->")
 
     # if using the local files or the git clone in the Dockerfiles
     dev_env = config["use_local_cortex_libs"]
 
     # get handler template
+    click.echo("generating handler dockerfile ...")
     handler_dockerfile = build_handler_dockerfile(config, path_to_config, dev_env)
-    click.echo(handler_dockerfile)
+    click.echo(f"outputting handler handler-{dockerfile_output_prefix}.Dockerfile")
+    with open(f"handler-{dockerfile_output_prefix}.Dockerfile", "w") as f:
+        f.write(handler_dockerfile)
 
     # get tfs template
     tfs_dockerfile = None
@@ -258,8 +303,15 @@ def build_dockerfile_images(config: dict, path_to_config: str) -> List[str]:
 
     # create tfs dockerfile
     if tfs_dockerfile:
+        click.echo("generating tensorflow dockerfile ...")
         tensorflow_dockerfile = build_tensorflow_dockerfile(config, tfs_template_lines, dev_env)
-        click.echo(tensorflow_dockerfile)
+        click.echo(f"outputting tensorflow tfs-{dockerfile_output_prefix}.Dockerfile")
+        with open(f"tfs-{dockerfile_output_prefix}.Dockerfile", "w") as f:
+            f.write(tensorflow_dockerfile)
+
+    # fill model server config with the validated form
+    with open(path_to_config, "w") as f:
+        f.write(yaml.safe_dump(config, indent=2, sort_keys=False))
 
 
 @click.command(help="A Cortex utility to build model servers without caring about dockerfiles")
@@ -280,7 +332,7 @@ def build_dockerfile_images(config: dict, path_to_config: str) -> List[str]:
 def main(path_to_config, dockerfile_output_prefix):
     # get the model server config
     config = read_model_server_config(path_to_config)
-    build_dockerfile_images(config, path_to_config)
+    build_dockerfile_images(config, path_to_config, dockerfile_output_prefix)
 
 
 if __name__ == "__main__":

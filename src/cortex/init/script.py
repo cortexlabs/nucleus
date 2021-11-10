@@ -65,7 +65,7 @@ def is_model_caching_enabled(model_server_config: dir) -> bool:
     else:
         return False
 
-    return models and models["cache_size"] and models["disk_cache_size"]
+    return models and "cache_size" in models and "disk_cache_size" in models
 
 
 def main():

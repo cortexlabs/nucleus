@@ -23,8 +23,8 @@ function module_exists() {
 
 if ! module_exists "cortex_internal"; then
     pip install --no-cache-dir -U \
-        -r /src/cortex/serve/serve.requirements.txt \
-        /src/cortex/serve/
+        -r /src/cortex/serve.requirements.txt \
+        /src/cortex/
 fi
 
 if [ "${CORTEX_IMAGE_TYPE}" = "tensorflow-handler" ]; then

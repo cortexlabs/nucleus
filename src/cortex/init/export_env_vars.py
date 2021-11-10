@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
+import yaml
 import os
 import sys
 from pathlib import Path
@@ -73,14 +73,14 @@ def print_env_var_exports(env_vars: dict):
 
 def main(model_server_config_path: str):
     with open(model_server_config_path, "r") as f:
-        server_config = json.load(f)
+        server_config = yaml.safe_load(f)
 
     env_vars = {
         "CORTEX_SERVING_PORT": 8888,
         "CORTEX_CACHE_DIR": "/mnt/cache",
         "CORTEX_PROJECT_DIR": "/mnt/project",
         "CORTEX_MODEL_DIR": "/mnt/model",
-        "CORTEX_LOG_CONFIG_FILE": "/src/cortex/serve/log_config.yaml",
+        "CORTEX_LOG_CONFIG_FILE": "/src/cortex/log_config.yaml",
         "CORTEX_PYTHON_PATH": "/mnt/project",
     }
     env_vars.update(extract_from_handler(server_config))

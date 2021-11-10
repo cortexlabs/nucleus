@@ -25,8 +25,6 @@ class HandlerType(collections.namedtuple("HandlerType", "type")):
 
 PythonHandlerType = HandlerType("python")
 TensorFlowHandlerType = HandlerType("tensorflow")
-# not needed because we don't allow for inf workloads
-# TensorFlowNeuronHandlerType = HandlerType("tensorflow-neuron")
 
 
 def handler_type_from_string(handler_type: str) -> HandlerType:
@@ -42,8 +40,6 @@ def handler_type_from_string(handler_type: str) -> HandlerType:
     handler_types = [
         PythonHandlerType,
         TensorFlowHandlerType,
-        # not needed because we don't allow for inf workloads
-        # TensorFlowNeuronHandlerType,
     ]
     for candidate in handler_types:
         if str(candidate) == handler_type:
@@ -51,12 +47,8 @@ def handler_type_from_string(handler_type: str) -> HandlerType:
     raise ValueError("handler_type can only be 'python' or 'tensorflow'")
 
 
-# TODO rename this to handler_type_from_server_config
 def handler_type_from_server_config(model_server_config: dict) -> HandlerType:
     """
     Get handler type from model server config.
     """
-    # not needed because we don't allow for inf workloads
-    # if api_spec["compute"]["inf"] > 0 and api_spec["handler"]["type"] == str(TensorFlowHandlerType):
-    #     return handler_type_from_string("tensorflow-neuron")
     return handler_type_from_string(model_server_config["type"])

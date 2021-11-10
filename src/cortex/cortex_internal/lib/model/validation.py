@@ -26,7 +26,6 @@ from cortex_internal.lib.log import configure_logger
 from cortex_internal.lib.type import (
     PythonHandlerType,
     TensorFlowHandlerType,
-    TensorFlowNeuronHandlerType,
     HandlerType,
 )
 
@@ -193,18 +192,6 @@ ModelTemplate = {
             },
         },
     },
-    TensorFlowNeuronHandlerType: {
-        OneOfAllPlaceholder(ModelVersion.PROVIDED): {
-            IntegerPlaceholder: {
-                GenericPlaceholder("saved_model.pb"): None,
-                AnyPlaceholder: None,
-            }
-        },
-        OneOfAllPlaceholder(ModelVersion.NOT_PROVIDED): {
-            GenericPlaceholder("saved_model.pb"): None,
-            AnyPlaceholder: None,
-        },
-    },
 }
 
 
@@ -283,7 +270,7 @@ def validate_model_paths(
 
     Args:
         paths: A list of all paths for a given s3/local prefix. Must be the top directory of a model.
-        handler_type: Handler type. Can be PythonHandlerType, TensorFlowHandlerType or TensorFlowNeuronHandlerType.
+        handler_type: Handler type. Can be PythonHandlerType or TensorFlowHandlerType.
         common_prefix: The common prefix of the directory which holds all models.
 
     Returns:

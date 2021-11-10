@@ -18,7 +18,7 @@ set -e
 
 export CORTEX_DEBUGGING=${CORTEX_DEBUGGING:-"true"}
 
-eval $(/opt/conda/envs/env/bin/python /src/cortex/serve/init/export_env_vars.py $CORTEX_MODEL_SERVER_CONFIG)
+eval $(/opt/conda/envs/env/bin/python /src/cortex/init/export_env_vars.py $CORTEX_MODEL_SERVER_CONFIG)
 
 function substitute_env_vars() {
     file_to_run_substitution=$1
@@ -54,12 +54,12 @@ create_s6_service() {
     mkdir $dest_dir
 
     dest_script="$dest_dir/run"
-    cp /src/cortex/serve/init/templates/run $dest_script
+    cp /src/cortex/init/templates/run $dest_script
     substitute_env_vars $dest_script
     chmod +x $dest_script
 
     dest_script="$dest_dir/finish"
-    cp /src/cortex/serve/init/templates/finish $dest_script
+    cp /src/cortex/init/templates/finish $dest_script
     substitute_env_vars $dest_script
     chmod +x $dest_script
 
@@ -79,7 +79,7 @@ create_s6_service_from_file() {
     chmod +x $dest_dir/run
 
     dest_script="$dest_dir/finish"
-    cp /src/cortex/serve/init/templates/finish $dest_script
+    cp /src/cortex/init/templates/finish $dest_script
     substitute_env_vars $dest_script
     chmod +x $dest_script
 
@@ -99,18 +99,18 @@ fi
 for i in $(seq 1 $CORTEX_PROCESSES_PER_REPLICA); do
     # prepare uvicorn workers
     if [ $CORTEX_SERVING_PROTOCOL = "http" ]; then
-        create_s6_service "uvicorn-$((i-1))" "cd /mnt/project && $source_env_file_cmd && PYTHONUNBUFFERED=TRUE PYTHONPATH=$PYTHONPATH:$CORTEX_PYTHON_PATH exec /opt/conda/envs/env/bin/python /src/cortex/serve/start/server.py /run/servers/proc-$((i-1)).sock"
+        create_s6_service "uvicorn-$((i-1))" "cd /mnt/project && $source_env_file_cmd && PYTHONUNBUFFERED=TRUE PYTHONPATH=$PYTHONPATH:$CORTEX_PYTHON_PATH exec /opt/conda/envs/env/bin/python /src/cortex/start/server.py /run/servers/proc-$((i-1)).sock"
     fi
 
     # prepare grpc workers
     if [ $CORTEX_SERVING_PROTOCOL = "grpc" ]; then
-        create_s6_service "grpc-$((i-1))" "cd /mnt/project && $source_env_file_cmd && PYTHONUNBUFFERED=TRUE PYTHONPATH=$PYTHONPATH:$CORTEX_PYTHON_PATH exec /opt/conda/envs/env/bin/python /src/cortex/serve/start/server_grpc.py localhost:$((i-1+20000))"
+        create_s6_service "grpc-$((i-1))" "cd /mnt/project && $source_env_file_cmd && PYTHONUNBUFFERED=TRUE PYTHONPATH=$PYTHONPATH:$CORTEX_PYTHON_PATH exec /opt/conda/envs/env/bin/python /src/cortex/start/server_grpc.py localhost:$((i-1+20000))"
     fi
 done
 
 # generate nginx conf
-/opt/conda/envs/env/bin/python -c 'from cortex_internal.lib import util; import os; generated = util.render_jinja_template("/src/cortex/serve/nginx.conf.j2", os.environ); print(generated);' > /run/nginx.conf
+/opt/conda/envs/env/bin/python -c 'from cortex_internal.lib import util; import os; generated = util.render_jinja_template("/src/cortex/nginx.conf.j2", os.environ); print(generated);' > /run/nginx.conf
 
-create_s6_service "py_init" "cd /mnt/project && exec /opt/conda/envs/env/bin/python /src/cortex/serve/init/script.py"
+create_s6_service "py_init" "cd /mnt/project && exec /opt/conda/envs/env/bin/python /src/cortex/init/script.py"
 create_s6_service "nginx" "exec nginx -c /run/nginx.conf"
-create_s6_service_from_file "api_readiness" "/src/cortex/serve/poll/readiness.sh"
+create_s6_service_from_file "api_readiness" "/src/cortex/poll/readiness.sh"

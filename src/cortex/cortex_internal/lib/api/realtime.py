@@ -370,7 +370,7 @@ class RealtimeAPI:
         ):
             models = self._model_server_config["multi_model_reloading"]
 
-        return models and models["cache_size"] and models["disk_cache_size"]
+        return models and "cache_size" in models and "disk_cache_size" in models
 
     def __del__(self) -> None:
         for cron in self.crons:
