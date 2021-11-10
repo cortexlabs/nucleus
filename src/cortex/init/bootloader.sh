@@ -18,6 +18,9 @@ set -e
 
 export CORTEX_DEBUGGING=${CORTEX_DEBUGGING:-"true"}
 
+temp_file=$(mktemp)
+/opt/conda/envs/env/bin/python /src/cortex/init/expand_server_config.py $CORTEX_MODEL_SERVER_CONFIG > $temp_file
+mv $temp_file $CORTEX_MODEL_SERVER_CONFIG
 eval $(/opt/conda/envs/env/bin/python /src/cortex/init/export_env_vars.py $CORTEX_MODEL_SERVER_CONFIG)
 
 function substitute_env_vars() {

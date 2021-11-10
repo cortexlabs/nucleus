@@ -15,6 +15,7 @@
 import asyncio
 import inspect
 import json
+import yaml
 import os
 import re
 import signal
@@ -255,15 +256,15 @@ def start():
 
 def start_fn():
     project_dir = os.environ["CORTEX_PROJECT_DIR"]
-    spec_path = os.environ["CORTEX_API_SPEC"]
+    model_server_config_path = os.environ["CORTEX_MODEL_SERVER_CONFIG"]
     model_dir = os.getenv("CORTEX_MODEL_DIR")
     tf_serving_port = os.getenv("CORTEX_TF_BASE_SERVING_PORT", "9000")
     tf_serving_host = os.getenv("CORTEX_TF_SERVING_HOST", "localhost")
 
     try:
-        with open(spec_path) as json_file:
-            api_spec = json.load(json_file)
-        api = RealtimeAPI(api_spec, model_dir)
+        with open(model_server_config_path) as yaml_file:
+            model_server_config = yaml.safe_load(yaml_file)
+        api = RealtimeAPI(model_server_config, model_dir)
 
         client = api.initialize_client(
             tf_serving_host=tf_serving_host, tf_serving_port=tf_serving_port

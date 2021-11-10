@@ -12,7 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from cortex_internal.lib.api.batch import BatchAPI
 from cortex_internal.lib.api.realtime import RealtimeAPI
-from cortex_internal.lib.api.task import TaskAPI
-from cortex_internal.lib.api.utils import get_spec, model_downloader, DynamicBatcher
+from cortex_internal.lib.api.utils import model_downloader, DynamicBatcher

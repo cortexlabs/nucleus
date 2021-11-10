@@ -136,7 +136,7 @@ class RealtimeAPI:
         self.type = handler_type_from_server_config(model_server_config)
         self.path = model_server_config["path"]
         self.config = model_server_config.get("config", {})
-        self.protobuf_path = model_server_config["handler"].get("protobuf_path")
+        self.protobuf_path = model_server_config.get("protobuf_path")
 
         self.crons = []
         if not are_models_specified(self._model_server_config):
@@ -266,10 +266,7 @@ class RealtimeAPI:
             raise UserRuntimeException(self.path, "__init__", str(e)) from e
 
         # initialize the crons if models have been specified and if the API kind is RealtimeAPI
-        if (
-            are_models_specified(self._model_server_config)
-            and self._model_server_config["kind"] == "RealtimeAPI"
-        ):
+        if are_models_specified(self._model_server_config):
             if not self.multiple_processes and self.caching_enabled:
                 self.crons += [
                     ModelTreeUpdater(
@@ -370,7 +367,7 @@ class RealtimeAPI:
         ):
             models = self._model_server_config["multi_model_reloading"]
 
-        return models and "cache_size" in models and "disk_cache_size" in models
+        return models and models["cache_size"] and models["disk_cache_size"]
 
     def __del__(self) -> None:
         for cron in self.crons:

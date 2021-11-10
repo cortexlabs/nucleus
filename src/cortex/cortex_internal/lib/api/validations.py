@@ -115,33 +115,34 @@ def validate_python_handler_with_models(impl, api_spec):
         )
 
 
-def are_models_specified(api_spec: Dict) -> bool:
+def are_models_specified(server_config: Dict) -> bool:
     """
     Checks if models have been specified in the API spec (cortex.yaml).
 
     Args:
-        api_spec: API configuration.
+        server_config: API configuration.
     """
-    handler_type = handler_type_from_server_config(api_spec)
+    handler_type = handler_type_from_server_config(server_config)
 
-    if handler_type == PythonHandlerType and api_spec["handler"]["multi_model_reloading"]:
-        models = api_spec["handler"]["multi_model_reloading"]
+    if handler_type == PythonHandlerType and server_config["multi_model_reloading"]:
+        models = server_config["multi_model_reloading"]
     elif handler_type != PythonHandlerType:
-        models = api_spec["handler"]["models"]
+        models = server_config["models"]
     else:
         return False
 
     return models is not None
 
 
-def is_grpc_enabled(api_spec: Dict) -> bool:
+def is_grpc_enabled(server_config: Dict) -> bool:
     """
     Checks if the API has the grpc protocol enabled (cortex.yaml).
 
     Args:
-        api_spec: API configuration.
+        server_config: API configuration.
     """
-    return api_spec["handler"]["protobuf_path"] is not None
+    # TODO revert to server_config["protobof"]
+    return "protobuf_path" in server_config
 
 
 def validate_handler_with_grpc(impl, api_spec: Dict, rpc_method_names: List[str]):

@@ -19,8 +19,6 @@ import os
 import sys
 from pathlib import Path
 
-NEURON_CORES_PER_INF = 4
-
 
 def extract_from_handler(server_config: dict) -> dict:
     handler_type = server_config["type"].lower()

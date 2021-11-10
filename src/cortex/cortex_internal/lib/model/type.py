@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from typing import List, Optional
-from cortex.cortex_internal.lib.type.type import TensorFlowHandlerType
+from cortex_internal.lib.type.type import TensorFlowHandlerType
 
 import cortex_internal.consts
 from cortex_internal.lib.model import find_all_s3_models
