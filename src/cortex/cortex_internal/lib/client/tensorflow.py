@@ -68,8 +68,7 @@ class TensorFlowClient:
         self._spec_models = get_models_from_server_config(model_server_config)
 
         if (
-            "models" in self._model_server_config
-            and self._model_server_config["models"] not in ["", None]
+            self._model_server_config["models"]
             and self._model_server_config["models"]["dir"] is not None
         ):
             self._models_dir = True
@@ -410,8 +409,7 @@ class TensorFlowClient:
         Checks if model caching is enabled (models:cache_size and models:disk_cache_size).
         """
         return (
-            "models" in self._model_server_config
-            and self._model_server_config["models"] not in ["", None]
+            self._model_server_config["models"]
             and self._model_server_config["models"]["cache_size"] is not None
             and self._model_server_config["models"]["disk_cache_size"] is not None
         )

@@ -33,17 +33,6 @@ def validate_config(config: dict):
     if "use_local_cortex_libs" not in config:
         config["use_local_cortex_libs"] = False
 
-    if "log_level" not in config:
-        config["log_level"] = "info"
-    else:
-        config["log_level"] = config["log_level"].lower()
-
-    if "env" not in config:
-        config["env"] = {}
-
-    if "config" not in config:
-        config["config"] = {}
-
     if "processes_per_replica" not in config:
         config["processes_per_replica"] = 1
     if "threads_per_process" not in config:
@@ -80,9 +69,6 @@ def validate_config(config: dict):
 
     if "path" not in config:
         raise CortexModelServerBuilder("'path' field missing")
-
-    if "python_path" not in config:
-        config["python_path"] = "."
 
     if config["type"] == "python" and "models" in config:
         raise CortexModelServerBuilder("'models' field not supported for 'python' type")
@@ -308,10 +294,6 @@ def build_dockerfile_images(
         click.echo(f"outputting tensorflow tfs-{dockerfile_output_prefix}.Dockerfile")
         with open(f"tfs-{dockerfile_output_prefix}.Dockerfile", "w") as f:
             f.write(tensorflow_dockerfile)
-
-    # fill model server config with the validated form
-    with open(path_to_config, "w") as f:
-        f.write(yaml.safe_dump(config, indent=2, sort_keys=False))
 
 
 @click.command(help="A Cortex utility to build model servers without caring about dockerfiles")

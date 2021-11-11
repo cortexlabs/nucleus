@@ -21,13 +21,57 @@ import sys
 def main(model_server_config_path: str):
     with open(model_server_config_path, "r") as f:
         server_config = yaml.safe_load(f)
-    # print(yaml.safe_dump(server_config, indent=2, sort_keys=False))
+
+    if "py_version" not in server_config:
+        server_config["py_version"] = "3.6.9"
+
+    if "use_local_cortex_libs" not in server_config:
+        server_config["use_local_cortex_libs"] = False
+
+    if "log_level" not in server_config:
+        server_config["log_level"] = "info"
+    else:
+        server_config["log_level"] = server_config["log_level"].lower()
+
+    if "env" not in server_config:
+        server_config["env"] = {}
+
+    if "config" not in server_config:
+        server_config["config"] = {}
+
+    if "processes_per_replica" not in server_config:
+        server_config["processes_per_replica"] = 1
+    if "threads_per_process" not in server_config:
+        server_config["threads_per_process"] = 1
+    if "max_replica_concurrency" not in server_config:
+        server_config["max_replica_concurrency"] = 1
+
+    if "dependencies" not in server_config:
+        server_config["dependencies"] = {
+            "pip": "requirements.txt",
+            "conda": "conda-packages.txt",
+            "shell": "dependencies.sh",
+        }
+    elif "pip" not in server_config["dependencies"]:
+        server_config["dependencies"]["pip"] = "requirements.txt"
+    elif "conda" not in server_config["dependencies"]:
+        server_config["dependencies"]["conda"] = "conda-packages.txt"
+    elif "shell" not in server_config["dependencies"]:
+        server_config["dependencies"]["shell"] = "dependencies.sh"
+
+    if "python_path" not in server_config:
+        server_config["python_path"] = None
+
+    if "protobuf_path" not in server_config:
+        server_config["protobuf_path"] = None
 
     models_field_name: str = None
-    if "multi_model_reloading" in server_config:
+    if server_config["multi_model_reloading"]:
         models_field_name = "multi_model_reloading"
-    if "models" in server_config:
+        server_config["models"] = None
+    if server_config["models"]:
         models_field_name = "models"
+        server_config["multi_model_reloading"] = None
     if models_field_name:
         if "signature_key" not in server_config[models_field_name]:
             server_config[models_field_name]["signature_key"] = None

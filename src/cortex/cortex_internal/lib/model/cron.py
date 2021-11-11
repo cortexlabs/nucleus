@@ -146,15 +146,10 @@ class FileBasedModelsTreeUpdater(mp.Process):
         models = None
         if (
             self._handler_type == PythonHandlerType
-            and "multi_model_reloading" in self._model_server_config
-            and self._model_server_config["multi_model_reloading"] not in ["", None]
+            and self._model_server_config["multi_model_reloading"]
         ):
             models = self._model_server_config["multi_model_reloading"]
-        if (
-            self._handler_type == TensorFlowHandlerType
-            and "models" in self._model_server_config
-            and self._model_server_config["models"] not in ["", None]
-        ):
+        if self._handler_type == TensorFlowHandlerType and self._model_server_config["models"]:
             models = self._model_server_config["models"]
 
         if models is None:
@@ -1383,15 +1378,10 @@ class ModelTreeUpdater(AbstractLoopingThread):
 
         if (
             self._handler_type == PythonHandlerType
-            and "multi_model_reloading" in self._model_server_config
-            and self._model_server_config["multi_model_reloading"] not in ["", None]
+            and self._model_server_config["multi_model_reloading"]
         ):
             models = self._model_server_config["multi_model_reloading"]
-        elif (
-            self._handler_type == TensorFlowHandlerType
-            and "models" in self._model_server_config
-            and self._model_server_config["models"] not in ["", None]
-        ):
+        elif self._handler_type == TensorFlowHandlerType and self._model_server_config["models"]:
             models = self._model_server_config["models"]
         else:
             models = None

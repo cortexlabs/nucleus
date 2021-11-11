@@ -69,8 +69,7 @@ class ModelClient:
         self._spec_models = get_models_from_server_config(model_server_config)
 
         if (
-            "multi_model_reloading" in self._model_server_config
-            and self._model_server_config["multi_model_reloading"] not in ["", None]
+            self._model_server_config["multi_model_reloading"]
             and self._model_server_config["multi_model_reloading"]["dir"]
         ):
             self._models_dir = True
@@ -368,8 +367,7 @@ class ModelClient:
         Checks if model caching is enabled (models:cache_size and models:disk_cache_size).
         """
         return (
-            "multi_model_reloading" in self._model_server_config
-            and self._model_server_config["multi_model_reloading"] not in ["", None]
+            self._model_server_config["multi_model_reloading"]
             and self._model_server_config["multi_model_reloading"]["cache_size"]
             and self._model_server_config["multi_model_reloading"]["disk_cache_size"]
         )

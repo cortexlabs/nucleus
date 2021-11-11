@@ -115,17 +115,9 @@ def get_models_from_server_config(
     """
     handler_type = handler_type_from_server_config(model_server_config)
 
-    if (
-        handler_type == PythonHandlerType
-        and "multi_model_reloading" in model_server_config
-        and model_server_config["multi_model_reloading"] not in ["", None]
-    ):
+    if handler_type == PythonHandlerType and model_server_config["multi_model_reloading"]:
         models_spec = model_server_config["multi_model_reloading"]
-    elif (
-        handler_type == TensorFlowHandlerType
-        and "models" in model_server_config
-        and model_server_config["models"] not in ["", None]
-    ):
+    elif handler_type == TensorFlowHandlerType and model_server_config["models"]:
         models_spec = model_server_config["models"]
     else:
         return CuratedModelResources([])

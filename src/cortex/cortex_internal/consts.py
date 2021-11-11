@@ -13,4 +13,3 @@
 # limitations under the License.
 
 SINGLE_MODEL_NAME = "_cortex_default"
-INFERENTIA_NEURON_SOCKET = "/sock/neuron.sock"

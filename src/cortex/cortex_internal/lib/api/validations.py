@@ -90,8 +90,8 @@ def validate_required_method_args(impl, func_signature):
         seen_args.append(arg_name)
 
 
-def validate_python_handler_with_models(impl, api_spec):
-    if not are_models_specified(api_spec):
+def validate_python_handler_with_models(impl, model_server_config):
+    if not are_models_specified(model_server_config):
         return
 
     target_class_name = impl.__name__
@@ -141,18 +141,17 @@ def is_grpc_enabled(server_config: Dict) -> bool:
     Args:
         server_config: API configuration.
     """
-    # TODO revert to server_config["protobof"]
-    return "protobuf_path" in server_config
+    return server_config["protobuf_path"] is not None
 
 
-def validate_handler_with_grpc(impl, api_spec: Dict, rpc_method_names: List[str]):
-    if not is_grpc_enabled(api_spec):
+def validate_handler_with_grpc(impl, model_server_config: Dict, rpc_method_names: List[str]):
+    if not is_grpc_enabled(model_server_config):
         return
 
     target_class_name = impl.__name__
     constructor = getattr(impl, "__init__")
     constructor_arg_spec = inspect.getfullargspec(constructor)
-    if "proto_module_pb2" not in constructor_arg_spec.args:
+    if constructor_arg_spec.args["proto_module_pb2"]:
         raise UserException(
             f"class {target_class_name}",
             f"invalid signature for method `__init__`",

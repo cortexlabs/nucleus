@@ -42,25 +42,15 @@ def are_models_specified(model_server_config: dict) -> bool:
         server_config: Model server config.
     """
 
-    return "multi_model_reloading" in model_server_config and model_server_config[
-        "multi_model_reloading"
-    ] not in ["", None]
+    return model_server_config["multi_model_reloading"]
 
 
 def is_model_caching_enabled(model_server_config: dir) -> bool:
     handler_type = handler_type_from_server_config(model_server_config)
 
-    if (
-        handler_type == PythonHandlerType
-        and "multi_model_reloading" in model_server_config
-        and model_server_config["multi_model_reloading"] not in ["", None]
-    ):
+    if handler_type == PythonHandlerType and model_server_config["multi_model_reloading"]:
         models = model_server_config["multi_model_reloading"]
-    elif (
-        handler_type == TensorFlowHandlerType
-        and "models" in model_server_config
-        and model_server_config["models"] not in ["", None]
-    ):
+    elif handler_type == TensorFlowHandlerType and model_server_config["models"]:
         models = model_server_config["models"]
     else:
         return False

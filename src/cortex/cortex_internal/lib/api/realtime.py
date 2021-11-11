@@ -354,17 +354,9 @@ class RealtimeAPI:
         Checks if model caching is enabled.
         """
         models = None
-        if (
-            self.type == TensorFlowHandlerType
-            and "models" in self._model_server_config
-            and self._model_server_config["models"] not in ["", None]
-        ):
+        if self.type == TensorFlowHandlerType and "models" in self._model_server_config:
             models = self._model_server_config["models"]
-        if (
-            self.type == PythonHandlerType
-            and "multi_model_reloading" in self._model_server_config
-            and self._model_server_config["multi_model_reloading"] not in ["", None]
-        ):
+        if self.type == PythonHandlerType and "multi_model_reloading" in self._model_server_config:
             models = self._model_server_config["multi_model_reloading"]
 
         return models and models["cache_size"] and models["disk_cache_size"]

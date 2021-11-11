@@ -23,6 +23,12 @@ temp_file=$(mktemp)
 mv $temp_file $CORTEX_MODEL_SERVER_CONFIG
 eval $(/opt/conda/envs/env/bin/python /src/cortex/init/export_env_vars.py $CORTEX_MODEL_SERVER_CONFIG)
 
+# print the model server config
+echo "cortex model server config"
+echo "--------------------------"
+cat $CORTEX_MODEL_SERVER_CONFIG
+echo "--------------------------"
+
 function substitute_env_vars() {
     file_to_run_substitution=$1
     /opt/conda/envs/env/bin/python -c "from cortex_internal.lib import util; import os; util.expand_environment_vars_on_file('$file_to_run_substitution')"
