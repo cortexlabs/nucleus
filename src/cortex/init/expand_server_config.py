@@ -60,17 +60,20 @@ def main(model_server_config_path: str):
         server_config["dependencies"]["shell"] = "dependencies.sh"
 
     if "python_path" not in server_config:
-        server_config["python_path"] = None
+        server_config["python_path"] = "."
 
     if "protobuf_path" not in server_config:
         server_config["protobuf_path"] = None
 
     models_field_name: str = None
-    if server_config["multi_model_reloading"]:
+    if "multi_model_reloading" in server_config and server_config["multi_model_reloading"]:
         models_field_name = "multi_model_reloading"
         server_config["models"] = None
-    if server_config["models"]:
+    elif "models" in server_config and server_config["models"]:
         models_field_name = "models"
+        server_config["multi_model_reloading"] = None
+    else:
+        server_config["models"] = None
         server_config["multi_model_reloading"] = None
     if models_field_name:
         if "signature_key" not in server_config[models_field_name]:

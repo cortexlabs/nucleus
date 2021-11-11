@@ -63,18 +63,18 @@ local_cache: Dict[str, Any] = {
 
 @app.on_event("startup")
 def startup():
-    open(f"/mnt/workspace/proc-{os.getpid()}-ready.txt", "a").close()
+    open(f"/run/workspace/proc-{os.getpid()}-ready.txt", "a").close()
 
 
 @app.on_event("shutdown")
 def shutdown():
     try:
-        os.remove("/mnt/workspace/api_readiness.txt")
+        os.remove("/run/workspace/api_readiness.txt")
     except FileNotFoundError:
         pass
 
     try:
-        os.remove(f"/mnt/workspace/proc-{os.getpid()}-ready.txt")
+        os.remove(f"/run/workspace/proc-{os.getpid()}-ready.txt")
     except FileNotFoundError:
         pass
 
@@ -116,7 +116,7 @@ async def register_request(request: Request, call_next):
                 request_id = request.headers["x-request-id"]
             else:
                 request_id = uuid.uuid1()
-            file_id = f"/mnt/requests/{request_id}"
+            file_id = f"/run/requests/{request_id}"
             open(file_id, "a").close()
 
         response = await call_next(request)
@@ -270,6 +270,7 @@ def start_fn():
             tf_serving_host=tf_serving_host, tf_serving_port=tf_serving_port
         )
 
+        # use the filelock to load one handler at a time (if multiple processes are run)
         with FileLock("/run/init_stagger.lock"):
             logger.info("loading the handler from {}".format(api.path))
             handler_impl = api.initialize_impl(project_dir=project_dir, client=client)

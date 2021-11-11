@@ -151,7 +151,7 @@ def validate_handler_with_grpc(impl, model_server_config: Dict, rpc_method_names
     target_class_name = impl.__name__
     constructor = getattr(impl, "__init__")
     constructor_arg_spec = inspect.getfullargspec(constructor)
-    if constructor_arg_spec.args["proto_module_pb2"]:
+    if "proto_module_pb2" not in constructor_arg_spec.args:
         raise UserException(
             f"class {target_class_name}",
             f"invalid signature for method `__init__`",

@@ -29,7 +29,7 @@ def main():
     with open(os.environ["CORTEX_LOG_CONFIG_FILE"], "r") as f:
         log_config = yaml.load(f, yaml.FullLoader)
 
-    while not pathlib.Path("/mnt/workspace/init_script_run.txt").is_file():
+    while not pathlib.Path("/run/workspace/init_script_run.txt").is_file():
         time.sleep(0.2)
 
     uvicorn.run(

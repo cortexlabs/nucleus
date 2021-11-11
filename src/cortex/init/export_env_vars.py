@@ -35,13 +35,13 @@ def extract_from_handler(server_config: dict) -> dict:
     }
 
     env_vars["CORTEX_PYTHON_PATH"] = os.path.normpath(
-        os.path.join("/mnt", "project", server_config["python_path"])
+        os.path.join("/src", "project", server_config["python_path"])
     )
 
     if server_config.get("protobuf_path") is not None:
         env_vars["CORTEX_SERVING_PROTOCOL"] = "grpc"
         env_vars["CORTEX_PROTOBUF_FILE"] = os.path.join(
-            "/mnt", "project", server_config["protobuf_path"]
+            "/src", "project", server_config["protobuf_path"]
         )
     else:
         env_vars["CORTEX_SERVING_PROTOCOL"] = "http"
@@ -49,6 +49,9 @@ def extract_from_handler(server_config: dict) -> dict:
     if handler_type == "tensorflow":
         env_vars["CORTEX_TF_BASE_SERVING_PORT"] = "9000"
         env_vars["CORTEX_TF_SERVING_HOST"] = "localhost"
+
+    for key, val in server_config["env"].items():
+        env_vars[key] = val
 
     return env_vars
 
@@ -75,11 +78,10 @@ def main(model_server_config_path: str):
 
     env_vars = {
         "CORTEX_SERVING_PORT": 8888,
-        "CORTEX_CACHE_DIR": "/mnt/cache",
-        "CORTEX_PROJECT_DIR": "/mnt/project",
+        "CORTEX_PROJECT_DIR": "/src/project",
         "CORTEX_MODEL_DIR": "/mnt/model",
         "CORTEX_LOG_CONFIG_FILE": "/src/cortex/log_config.yaml",
-        "CORTEX_PYTHON_PATH": "/mnt/project",
+        "CORTEX_PYTHON_PATH": "/src/project",
     }
     env_vars.update(extract_from_handler(server_config))
 

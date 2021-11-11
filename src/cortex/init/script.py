@@ -97,7 +97,7 @@ def main():
             cron.start()
 
     # to syncronize with the other serving processes
-    open("/mnt/workspace/init_script_run.txt", "a").close()
+    open("/run/workspace/init_script_run.txt", "a").close()
 
     # don't exit the script if the cron is running
     while cron and cron.is_alive():

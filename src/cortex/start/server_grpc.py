@@ -14,7 +14,7 @@
 
 import importlib
 import inspect
-import json
+import yaml
 import os
 import pathlib
 import signal
@@ -44,7 +44,7 @@ class ThreadPoolExecutorWithRequestMonitor:
 
     def submit(self, fn, *args, **kwargs):
         request_id = uuid.uuid1()
-        file_id = f"/mnt/requests/{request_id}"
+        file_id = f"/run/requests/{request_id}"
         open(file_id, "a").close()
 
         def wrapper_fn(*args, **kwargs):
@@ -138,14 +138,12 @@ def init():
     model_server_config_path = os.environ["CORTEX_MODEL_SERVER_CONFIG"]
 
     model_dir = os.getenv("CORTEX_MODEL_DIR")
-    cache_dir = os.getenv("CORTEX_CACHE_DIR")
-    region = os.getenv("AWS_DEFAULT_REGION")
 
     tf_serving_port = os.getenv("CORTEX_TF_BASE_SERVING_PORT", "9000")
     tf_serving_host = os.getenv("CORTEX_TF_SERVING_HOST", "localhost")
 
     with open(model_server_config_path) as yaml_file:
-        model_server_config = json.load(yaml_file)
+        model_server_config = yaml.safe_load(yaml_file)
     api = RealtimeAPI(model_server_config, model_dir)
 
     config: Dict[str, Any] = {
@@ -164,10 +162,12 @@ def init():
     ServicerClass = get_servicer_from_module(module_proto_pb2_grpc)
     rpc_names = get_rpc_methods_from_servicer(ServicerClass)
 
+    # use the filelock to load one handler at a time (if multiple processes are run)
     with FileLock("/run/init_stagger.lock"):
         logger.info("loading the handler from {}".format(api.path))
         handler_impl = api.initialize_impl(
             project_dir=project_dir,
+            client=client,
             proto_module_pb2=module_proto_pb2,
             rpc_method_names=rpc_names,
         )
@@ -234,7 +234,7 @@ def main():
     server.start()
 
     time.sleep(5.0)
-    open(f"/mnt/workspace/proc-{os.getpid()}-ready.txt", "a").close()
+    open(f"/run/workspace/proc-{os.getpid()}-ready.txt", "a").close()
     server.wait_for_termination()
 
 
