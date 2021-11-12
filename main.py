@@ -119,9 +119,10 @@ def validate_config(config: dict):
                         f"{models_fieldname}: paths: {idx}: path field required"
                     )
 
-    if "gpu_version" in config and (
-        ("cuda" in config["gpu_version"] and "cudnn" not in config["gpu_version"])
-        or ("cuda" in config["gpu_version"] and "cudnn" not in config["gpu_version"])
+    if "gpu_version" not in config:
+        config["gpu_version"] = None
+    elif ("cuda" in config["gpu_version"] and "cudnn" not in config["gpu_version"]) or (
+        "cuda" in config["gpu_version"] and "cudnn" not in config["gpu_version"]
     ):
         raise CortexModelServerBuilder(
             "gpu_version: both 'cuda' and 'cudnn' fields must be specified"
@@ -134,7 +135,7 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
     cortex_image_type = "python-handler-cpu"
     if (
         config["type"] == "python"
-        and "gpu_version" in config
+        and config["gpu_version"]
         and config["gpu_version"]["cuda"] not in ["", None]
         and config["gpu_version"]["cudnn"] not in ["", None]
     ):
@@ -245,11 +246,11 @@ def build_tensorflow_dockerfile(
             f"    TF_BATCH_TIMEOUT_MICROS={int(float(config['server_side_batching']['batch_interval']) * 1000000)}",
             f"    TF_NUM_BATCHED_THREADS={config['processes_per_replica']}",
             "",
-            f"ENTRYPOINT ['/src/run.sh', '--port={tf_base_serving_port}', '--model_config_file={tf_empty_model_config}', '--max_num_load_retries={tf_max_num_load_retries}', '--load_retry_interval_micros={tf_load_time_micros}', '--grpc_channel_arguments=\"grpc.max_concurrent_streams={grpc_channel_arguments}\"', '--enable_batching=true', '--batching_parameters_file={batch_params_file}']",
+            f'ENTRYPOINT ["/src/tfs-run.sh", "--port={tf_base_serving_port}", "--model_config_file={tf_empty_model_config}", "--max_num_load_retries={tf_max_num_load_retries}", "--load_retry_interval_micros={tf_load_time_micros}", "--grpc_channel_arguments=\'grpc.max_concurrent_streams={grpc_channel_arguments}\'", "--enable_batching=true", "--batching_parameters_file={batch_params_file}"]',
         ]
     else:
         tfs_lines += [
-            f"ENTRYPOINT ['/src/run.sh', '--port={tf_base_serving_port}', '--model_config_file={tf_empty_model_config}', '--max_num_load_retries={tf_max_num_load_retries}', '--load_retry_interval_micros={tf_load_time_micros}', '--grpc_channel_arguments=\"grpc.max_concurrent_streams={grpc_channel_arguments}\"']"
+            f'ENTRYPOINT ["/src/tfs-run.sh", "--port={tf_base_serving_port}", "--model_config_file={tf_empty_model_config}", "--max_num_load_retries={tf_max_num_load_retries}", "--load_retry_interval_micros={tf_load_time_micros}", "--grpc_channel_arguments=\'grpc.max_concurrent_streams={grpc_channel_arguments}\'"]'
         ]
 
     tensorflow_dockerfile = "\n".join(tfs_lines)
@@ -280,8 +281,9 @@ def build_dockerfile_images(
     tfs_dockerfile = None
     if (
         config["type"] == "tensorflow"
-        and config["gpu"]["cuda"] not in ["", None]
-        and config["gpu"]["cudnn"] not in ["", None]
+        and config["gpu_version"]
+        and config["gpu_version"]["cuda"] not in ["", None]
+        and config["gpu_version"]["cudnn"] not in ["", None]
     ):
         tfs_dockerfile = pkgutil.get_data(__name__, "templates/tfs-gpu.Dockerfile")
         tfs_template_lines = tfs_dockerfile.splitlines()

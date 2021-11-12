@@ -81,7 +81,7 @@ def main(model_server_config_path: str):
         if "paths" in server_config[models_field_name]:
             for idx, model in enumerate(server_config[models_field_name]["paths"]):
                 if "signature_key" not in model:
-                    server_config[models_field_name][idx]["signature_key"] = None
+                    server_config[models_field_name]["paths"][idx]["signature_key"] = None
         if "paths" not in server_config[models_field_name]:
             server_config[models_field_name]["paths"] = None
         if "dir" not in server_config[models_field_name]:
