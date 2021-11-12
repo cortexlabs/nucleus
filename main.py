@@ -216,6 +216,7 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
         "    /usr/local/cortex/install-core-dependencies.sh",
         "",
         'ENTRYPOINT ["/init"]',
+        "",
     ]
 
     handler_dockerfile = "\n".join(handler_lines)
@@ -302,6 +303,7 @@ def build_tensorflow_dockerfile(config: dict, tfs_dockerfile: bytes, dev_env: bo
         tfs_lines += [
             f'ENTRYPOINT ["/src/tfs-run.sh", "--port={tf_base_serving_port}", "--model_config_file={tf_empty_model_config}", "--max_num_load_retries={tf_max_num_load_retries}", "--load_retry_interval_micros={tf_load_time_micros}", "--grpc_channel_arguments=\'grpc.max_concurrent_streams={grpc_channel_arguments}\'"]'
         ]
+    tfs_lines.append("")
 
     tensorflow_dockerfile = "\n".join(tfs_lines)
     return tensorflow_dockerfile
