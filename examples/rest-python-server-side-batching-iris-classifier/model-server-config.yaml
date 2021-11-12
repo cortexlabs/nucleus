@@ -1,0 +1,10 @@
+type: python
+py_version: 3.6.9
+path: handler.py
+config:
+  model: s3://cortex-examples/pytorch/iris-classifier/weights.pth
+server_side_batching:
+  max_batch_size: 8
+  batch_interval: 20.0
+threads_per_process: 8
+use_local_cortex_libs: true

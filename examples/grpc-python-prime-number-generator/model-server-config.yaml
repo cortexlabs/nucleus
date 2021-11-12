@@ -1,0 +1,4 @@
+type: python
+path: generator.py
+protobuf_path: generator.proto
+use_local_cortex_libs: true

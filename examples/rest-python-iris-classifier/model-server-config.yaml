@@ -1,0 +1,6 @@
+type: python
+py_version: 3.6.9
+path: handler.py
+multi_model_reloading:
+  path: s3://cortex-examples/sklearn/mpg-estimator/linreg/
+use_local_cortex_libs: true
