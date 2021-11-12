@@ -48,7 +48,6 @@ def extract_from_handler(server_config: dict) -> dict:
 
     if handler_type == "tensorflow":
         env_vars["CORTEX_TF_BASE_SERVING_PORT"] = "9000"
-        env_vars["CORTEX_TF_SERVING_HOST"] = "localhost"
 
     for key, val in server_config["env"].items():
         env_vars[key] = val

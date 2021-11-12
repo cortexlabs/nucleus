@@ -1,3 +1,4 @@
+import os
 from typing import List
 
 import pkgutil
@@ -6,6 +7,7 @@ import pathlib
 import yaml
 import click
 
+CORTEX_MODEL_SERVER_VERSION = "master"
 
 class CortexModelServerBuilder(RuntimeError):
     pass
@@ -147,6 +149,12 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
     handler_template = pkgutil.get_data(__name__, "templates/handler.Dockerfile")
     base_image = "ubuntu:18.04"
     cortex_image_type = "python-handler-cpu"
+    if os.environ["CORTEX_TELEMETRY_SENTRY_DSN"]:
+        cortex_sentry_dsn = os.getenv("CORTEX_TELEMETRY_SENTRY_DSN")
+    else:
+        cortex_sentry_dsn = "https://5cea3d2d67194d028f7191fcc6ebca14@sentry.io/1825326"
+    cortex_telemetry_sentry_environment = "nucleus"
+
     if (
         config["type"] == "python"
         and config["gpu_version"]
@@ -154,7 +162,7 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
         and config["gpu_version"]["cudnn"] not in ["", None]
     ):
         base_image = (
-            f"nvidia/cuda:{config['gpu']['cuda']}-cudnn{config['gpu']['cudnn']}-runtime-ubuntu18.04"
+            f"nvidia/cuda:{config['gpu_version']['cuda']}-cudnn{config['gpu_version']['cudnn']}-runtime-ubuntu18.04"
         )
         cortex_image_type = "python-handler-gpu"
     if config["type"] == "tensorflow":
@@ -163,6 +171,7 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
         "BASE_IMAGE": base_image,
         "PYTHON_VERSION": config["py_version"],
         "CORTEX_IMAGE_TYPE": cortex_image_type,
+        "CORTEX_TF_SERVING_HOST": "" if "tfs_container_dns" not in config else config["tfs_container_dns"],
     }
     for env, val in substitute_envs.items():
         env_var = f"${env}"
@@ -179,7 +188,7 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
         ]
     else:
         handler_lines += [
-            "RUN git clone --depth 1 https://github.com/robertlucian/cortex-templates && \\",
+            "RUN git clone --depth 1 -b v{CORTEX_MODEL_SERVER_VERSION} https://github.com/cortexlabs/nucleus && \\",
             "    cp -r cortex-templates/src/* /src/ && \\",
             "    rm -r cortex-templates/",
             "",
@@ -199,13 +208,15 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
         "    cp /src/cortex/init/install-core-dependencies.sh /usr/local/cortex/install-core-dependencies.sh && \\",
         "    chmod +x /usr/local/cortex/install-core-dependencies.sh && \\",
         "    /usr/local/cortex/install-core-dependencies.sh",
-        "ENV CORTEX_LOG_CONFIG_FILE /src/cortex/log_config.yaml",
+        "ENV CORTEX_LOG_CONFIG_FILE /src/cortex/log_config.yaml \\",
+        f"   CORTEX_TELEMETRY_SENTRY_DSN {cortex_sentry_dsn} \\",
+        f"   CORTEX_TELEMETRY_SENTRY_ENVIRONMENT {cortex_telemetry_sentry_environment}",
         "",
         "RUN pip install --no-deps /src/cortex/ && \\",
         "    mv /src/cortex/init/bootloader.sh /etc/cont-init.d/bootloader.sh",
         "",
         f"COPY {project_dir}/ /src/project/",
-        f"ENV CORTEX_MODEL_SERVER_CONFIG /src/project/{config_filename}" "",
+        f"ENV CORTEX_MODEL_SERVER_CONFIG /src/project/{config_filename}",
         f"RUN /opt/conda/envs/env/bin/python /src/cortex/init/expand_server_config.py /src/project/{config_filename} > /src/project/{config_filename}.tmp && \\",
         f"   mv /src/project/{config_filename}.tmp /src/project/{config_filename} && \\",
         f"   eval $(/opt/conda/envs/env/bin/python /src/cortex/init/export_env_vars.py /src/project/{config_filename}) && \\",
@@ -279,7 +290,7 @@ def build_tensorflow_dockerfile(config: dict, tfs_dockerfile: bytes, dev_env: bo
         ]
     else:
         tfs_lines += [
-            "RUN git clone --depth 1 https://github.com/robertlucian/cortex-templates \\",
+            f"RUN git clone --depth 1 -b v{CORTEX_MODEL_SERVER_VERSION} https://github.com/cortexlabs/nucleus \\",
             "    cp cortex-templates/data/tfs-run.sh /src/ && \\",
             "    rm -r cortex-templates/",
         ]

@@ -69,8 +69,6 @@ def init_sentry(
     if release == "":
         release = os.environ["CORTEX_MODEL_SERVER_VERSION"]
 
-    user_id = os.environ["CORTEX_TELEMETRY_SENTRY_USER_ID"]
-
     sentry_sdk.init(
         dsn=dsn,
         environment=environment,
@@ -82,7 +80,6 @@ def init_sentry(
             ThreadingIntegration(propagate_hub=True),
         ],
     )
-    sentry_sdk.set_user({"id": user_id})
 
     for k, v in tags.items():
         sentry_sdk.set_tag(k, v)

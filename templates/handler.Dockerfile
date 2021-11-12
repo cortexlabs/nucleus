@@ -1,6 +1,6 @@
 # to replace when building the dockerfile
 FROM $BASE_IMAGE
-ENV CORTEX_MODEL_SERVER_VERSION=0.1.0
+ENV CORTEX_MODEL_SERVER_VERSION=master
 
 RUN apt-get update -qq && apt-get install -y -q \
         build-essential \
@@ -23,11 +23,10 @@ ENV S6_BEHAVIOUR_IF_STAGE2_FAILS 2
 
 RUN locale-gen en_US.UTF-8
 ENV LANG=en_US.UTF-8 LANGUAGE=en_US.UTF-8 LC_ALL=en_US.UTF-8
-
-ENV PATH=/opt/conda/bin:$PATH
-# to replace when building the dockerfile
-ENV PYTHONVERSION=$PYTHON_VERSION
-ENV CORTEX_IMAGE_TYPE=$CORTEX_IMAGE_TYPE
+ENV PATH=/opt/conda/bin:$PATH \
+    PYTHONVERSION=$PYTHON_VERSION \
+    CORTEX_IMAGE_TYPE=$CORTEX_IMAGE_TYPE \
+    CORTEX_TF_SERVING_HOST=$CORTEX_TF_SERVING_HOST
 
 # conda needs an untainted base environment to function properly
 # that's why a new separate conda environment is created

@@ -17,33 +17,35 @@ import pathlib
 import pkg_resources
 from setuptools import setup, find_packages
 
+CORTEX_MODEL_SERVER_VERSION="master"
+
 with pathlib.Path("cortex_internal.requirements.txt").open() as requirements_txt:
     install_requires = [
         str(requirement) for requirement in pkg_resources.parse_requirements(requirements_txt)
     ]
 
+
 setup(
-    name="cortex-internal",
-    version="0.1.0",  # CORTEX_MODEL_SERVER_VERSION
-    description="Internal package for Cortex containers",
+    name="nucleus-internal",
+    version=CORTEX_MODEL_SERVER_VERSION,
+    description="Internal package for the nucleus model server",
     author="cortex.dev",
     author_email="dev@cortex.dev",
     license="Apache License 2.0",
-    url="https:/github.com/cortexlabs/cortex",
+    url="https:/github.com/cortexlabs/nucleus",
     setup_requires=(["setuptools", "wheel"]),
     packages=find_packages(),
     install_requires=install_requires,
     python_requires=">=3.6",
     classifiers=[
-        "Operating System :: MacOS",
         "Operating System :: POSIX :: Linux",
         "Programming Language :: Python :: 3.6",
         "Intended Audience :: Developers",
     ],
     project_urls={
-        "Bug Reports": "https://github.com/cortexlabs/cortex/issues",
-        "Chat with us": "https://gitter.im/cortexlabs/cortex",
-        "Documentation": "https://docs.cortex.dev",
-        "Source Code": "https://github.com/cortexlabs/cortex",
+        "Bug Reports": "https://github.com/cortexlabs/nucleus/issues",
+        "Chat with us": "https://community.cortex.dev/",
+        "Documentation": "https://github.com/cortexlabs/nucleus",
+        "Source Code": "https://github.com/cortexlabs/nucleus",
     },
 )
