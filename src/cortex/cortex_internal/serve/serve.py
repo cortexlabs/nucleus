@@ -43,8 +43,6 @@ from cortex_internal.lib.telemetry import capture_exception, get_default_tags, i
 init_sentry(tags=get_default_tags())
 logger = configure_logger("cortex", os.environ["CORTEX_LOG_CONFIG_FILE"])
 
-NANOSECONDS_IN_SECOND = 1e9
-
 
 request_thread_pool = ThreadPoolExecutor(max_workers=int(os.environ["CORTEX_THREADS_PER_PROCESS"]))
 loop = asyncio.get_event_loop()
@@ -301,15 +299,14 @@ def start_fn():
             )
 
         if api.python_server_side_batching_enabled:
-            dynamic_batching_config = api._model_server_config["handler"]["server_side_batching"]
+            dynamic_batching_config = api._model_server_config["server_side_batching"]
 
             if "post" in local_cache["handle_fn_args"]:
                 local_cache["dynamic_batcher"] = DynamicBatcher(
                     handler_impl,
                     method_name=f"handle_post",
                     max_batch_size=dynamic_batching_config["max_batch_size"],
-                    batch_interval=dynamic_batching_config["batch_interval"]
-                    / NANOSECONDS_IN_SECOND,  # convert nanoseconds to seconds
+                    batch_interval=dynamic_batching_config["batch_interval"],
                 )
             else:
                 raise UserException(

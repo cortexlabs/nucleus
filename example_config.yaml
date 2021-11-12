@@ -1,8 +1,10 @@
 type: tensorflow # python/tensorflow
 py_version: 3.6.9
-gpu:
+tfs_version: 2.3.0
+gpu_version:
   cuda: none # none / some version
   cudnn: none # none / some version
+tfs_container_dns: "localhost"
 python_path: <string>  # path to the root of your Python folder that will be appended to PYTHONPATH (default: folder containing cortex.yaml)
 protobuf_path: <string>  # path to a protobuf file (required if using gRPC)
 models:  # use this to serve one or more models with live reloading (optional)

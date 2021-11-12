@@ -77,6 +77,20 @@ def validate_config(config: dict):
             "'multi_model_reloading' field not supported for 'tensorflow' type"
         )
 
+    if config["type"] == "python":
+        if "tfs_version" in config:
+            raise CortexModelServerBuilder("'tfs_version' field not supported for 'python' type")
+        if "tfs_container_dns" in config:
+            raise CortexModelServerBuilder(
+                "'tfs_container_dns' field not supported for 'python' type"
+            )
+
+    if config["type"] == "tensorflow":
+        if "tfs_version" not in config:
+            config["tfs_version"] = "2.3.0"
+        if "tfs_container_dns" not in config:
+            config["tfs_container_dns"] = "localhost"
+
     models_fieldname: str
     if config["type"] == "python":
         models_fieldname = "multi_model_reloading"
@@ -208,10 +222,46 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
     return handler_dockerfile
 
 
-def build_tensorflow_dockerfile(
-    config: dict, tfs_template_lines: List[bytes], dev_env: bool
-) -> str:
+def build_tensorflow_dockerfile(config: dict, tfs_dockerfile: bytes, dev_env: bool) -> str:
+    runs_on_gpu = False
+    if (
+        config["gpu_version"]
+        and config["gpu_version"]["cuda"] not in ["", None]
+        and config["gpu_version"]["cudnn"] not in ["", None]
+    ):
+        tfs_dockerfile = tfs_dockerfile.replace(
+            "$BASE_IMAGE".encode("utf-8"),
+            f"tensorflow/serving:{config['tfs_version']}-gpu".encode("utf-8"),
+        )
+        runs_on_gpu = True
+    else:
+        tfs_dockerfile = tfs_dockerfile.replace(
+            "$BASE_IMAGE".encode("utf-8"),
+            f"tensorflow/serving:{config['tfs_version']}".encode("utf-8"),
+        )
+    tfs_template_lines = tfs_dockerfile.splitlines()
     tfs_lines = [line.decode("utf-8") for line in tfs_template_lines]
+
+    if runs_on_gpu:
+        tfs_lines += [
+            "",
+            "RUN apt-get update -qq && apt-get install -y --no-install-recommends -q \\",
+            "    libnvinfer6=6.0.1-1+cuda10.1 \\",
+            "    libnvinfer-plugin6=6.0.1-1+cuda10.1 \\",
+            "    curl \\",
+            "    git && \\",
+            "    apt-get clean -qq && rm -rf /var/lib/apt/lists/*",
+            "",
+        ]
+    else:
+        tfs_lines += [
+            "",
+            "RUN apt-get update -qq && apt-get install -y --no-install-recommends -q \\",
+            "    curl \\",
+            "    git && \\",
+            "    apt-get clean -qq && rm -rf /var/lib/apt/lists/*",
+            "",
+        ]
 
     tf_base_serving_port = 9000
     tf_empty_model_config = "/etc/tfs/model_config_server.conf"
@@ -242,8 +292,8 @@ def build_tensorflow_dockerfile(
         and config["server_side_batching"]["batch_interval"]
     ):
         tfs_lines += [
-            f"ENV TF_MAX_BATCH_SIZE={config['server_side_batching']['max_batch_size']}",
-            f"    TF_BATCH_TIMEOUT_MICROS={int(float(config['server_side_batching']['batch_interval']) * 1000000)}",
+            f"ENV TF_MAX_BATCH_SIZE={config['server_side_batching']['max_batch_size']} \\",
+            f"    TF_BATCH_TIMEOUT_MICROS={int(float(config['server_side_batching']['batch_interval']) * 1000000)} \\",
             f"    TF_NUM_BATCHED_THREADS={config['processes_per_replica']}",
             "",
             f'ENTRYPOINT ["/src/tfs-run.sh", "--port={tf_base_serving_port}", "--model_config_file={tf_empty_model_config}", "--max_num_load_retries={tf_max_num_load_retries}", "--load_retry_interval_micros={tf_load_time_micros}", "--grpc_channel_arguments=\'grpc.max_concurrent_streams={grpc_channel_arguments}\'", "--enable_batching=true", "--batching_parameters_file={batch_params_file}"]',
@@ -278,23 +328,10 @@ def build_dockerfile_images(
         f.write(handler_dockerfile)
 
     # get tfs template
-    tfs_dockerfile = None
-    if (
-        config["type"] == "tensorflow"
-        and config["gpu_version"]
-        and config["gpu_version"]["cuda"] not in ["", None]
-        and config["gpu_version"]["cudnn"] not in ["", None]
-    ):
-        tfs_dockerfile = pkgutil.get_data(__name__, "templates/tfs-gpu.Dockerfile")
-        tfs_template_lines = tfs_dockerfile.splitlines()
-    elif config["type"] == "tensorflow":
-        tfs_dockerfile = pkgutil.get_data(__name__, "templates/tfs-cpu.Dockerfile")
-        tfs_template_lines = tfs_dockerfile.splitlines()
-
-    # create tfs dockerfile
-    if tfs_dockerfile:
+    if config["type"] == "tensorflow":
         click.echo("generating tensorflow dockerfile ...")
-        tensorflow_dockerfile = build_tensorflow_dockerfile(config, tfs_template_lines, dev_env)
+        tfs_dockerfile = pkgutil.get_data(__name__, "templates/tfs.Dockerfile")
+        tensorflow_dockerfile = build_tensorflow_dockerfile(config, tfs_dockerfile, dev_env)
         click.echo(f"outputting tensorflow tfs-{dockerfile_output_prefix}.Dockerfile")
         with open(f"tfs-{dockerfile_output_prefix}.Dockerfile", "w") as f:
             f.write(tensorflow_dockerfile)
