@@ -1,9 +1,6 @@
 type: tensorflow
 py_version: 3.6.9
 path: handler.py
-gpu_version:
-  cuda: 10.1
-  cudnn: 8.1
 models:
   path: s3://cortex-examples/tensorflow/image-classifier/inception/
 server_side_batching:
@@ -11,3 +8,4 @@ server_side_batching:
   batch_interval: 30.0
 threads_per_process: 2
 use_local_cortex_libs: true
+tfs_container_dns: tfs

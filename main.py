@@ -209,7 +209,7 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
         "    chmod +x /usr/local/cortex/install-core-dependencies.sh && \\",
         "    /usr/local/cortex/install-core-dependencies.sh",
         "ENV CORTEX_LOG_CONFIG_FILE /src/cortex/log_config.yaml \\",
-        f"   CORTEX_TELEMETRY_SENTRY_DSN {cortex_sentry_dsn} \\",
+        f"   CORTEX_TELEMETRY_SENTRY_DSN \"{cortex_sentry_dsn}\" \\",
         f"   CORTEX_TELEMETRY_SENTRY_ENVIRONMENT {cortex_telemetry_sentry_environment}",
         "",
         "RUN pip install --no-deps /src/cortex/ && \\",
@@ -354,14 +354,14 @@ def build_dockerfile_images(
 @click.option(
     "--path-to-config",
     type=click.STRING,
-    default="cortex-model-server-config.yaml",
+    default="nucleus-model-server-config.yaml",
     show_default=True,
     help="Path to model server config; the config's dir represents the target dir project",
 )
 @click.option(
     "--dockerfile-output-prefix",
     type=click.STRING,
-    default="cortex-model-server",
+    default="nucleus-model-server",
     show_default=True,
     help="The output dockerfile(s)' prefix",
 )

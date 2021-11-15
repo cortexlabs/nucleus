@@ -16,7 +16,6 @@
 
 set -e
 
-export CORTEX_DEBUGGING=${CORTEX_DEBUGGING:-"true"}
 eval $(/opt/conda/envs/env/bin/python /src/cortex/init/export_env_vars.py $CORTEX_MODEL_SERVER_CONFIG)
 
 # print the model server config

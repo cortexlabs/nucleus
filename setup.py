@@ -6,7 +6,7 @@ with open("requirements.txt") as fp:
     install_requires = fp.read()
 
 setuptools.setup(
-    name="cortex-model-server-builder",
+    name="nucleus",
     version=CORTEX_MODEL_SERVER_VERSION,
     description="CLI tool to generating the dockerfiles of a nucleus model server; compatible with a Cortex cluster",
     author="Robert Lucian Chiriac",
