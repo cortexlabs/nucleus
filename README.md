@@ -1,6 +1,6 @@
 # Nucleus model server
 
-The Nucleus is a model server for TensorFlow and generic Python models. The model server is supposed to run as part of a k8s pod. For developing your model server, you can run it locally with docker compose. Compatible with the [Cortex](https://github.com/cortexlabs/cortex) cluster. A non-comprehensive list of all features baked into Nucleus is:
+The Nucleus is a model server for TensorFlow and generic Python models. The Nucleus model server is supposed to run as part of a k8s pod. For developing your model server, you can run it locally with docker compose. Compatible with the [Cortex](https://github.com/cortexlabs/cortex) cluster. A non-comprehensive list of all features baked into Nucleus is:
 
 1. TensorFlow models.
 1. Generic Python models (PyTorch, ONNX, Sklearn, MLFlow, Numpy, Pandas, Caffe, etc) with custom loader.
@@ -26,6 +26,15 @@ The Nucleus is a model server for TensorFlow and generic Python models. The mode
   * [Models](#models)
     * [Python Handler](#python-handler)
     * [Tensorflow Handler](#tensorflow-handler)
+* Examples
+  * [gRPC Python on the iris classifier](examples/grpc-python-iris-classifier)
+  * [gRPC Python on the prime generator](examples/grpc-python-prime-generator)
+  * [REST Python on the iris classifier](examples/rest-python-iris-classifier)
+  * [REST Python model caching on a translator model](examples/rest-python-model-caching-translator)
+  * [REST Python server-side-batching on the iris classifier](examples/rest-python-server-side-batching-iris-classifier)
+  * [REST TFS multi model caching on generic classifiers](examples/rest-tfs-multi-model-caching-classifier)
+  * [REST TFS multi model on generic classifiers](examples/rest-tfs-multi-model-classifier)
+  * [REST TFS server side batching on the inception classifier](examples/rest-tfs-server-side-batching-inception-classifier)
 
 # Getting started
 
@@ -57,11 +66,20 @@ When building your model server, you will need a `model-server-config.yaml` that
 
 ```yaml
 type: <string> # python/tensorflow (required)
+
+# versions
 py_version: <string> # python version (default: 3.6.9)
 tfs_version: <string> # tensorflow version for when the tensorflow type is used (default: 2.3.0)
 gpu_version: # gpu version if gpu is present(optional)
   cuda: <string> # cuda version (required)
   cudnn: <string> # cudnn version (required)
+
+# dependencies
+dependencies:
+  pip: <string> # relative path to requirements.txt (default: requirements.txt)
+  conda: <string> # relative path to conda-packages.txt (default: conda-packages.txt)
+  shell: <string> # relative path to a shell script for system package installation (default: dependencies.sh)
+
 env: # environment vars to be exported to the model server
   # <string: string>  # dictionary of environment variables
 config: # dictionary config to be passed to the model server constructor
@@ -78,16 +96,18 @@ models: # use this to serve one or more models with live reloading for the tenso
   disk_cache_size: <int> # the number of models to keep on disk (optional; all models are kept on disk by default)
 multi_model_reloading: # use this to serve one or more models with live reloading for the python type (optional)
   - ... # same as for "models"
-dependencies:
-  pip: <string> # relative path to requirements.txt (default: requirements.txt)
-  conda: <string> # relative path to conda-packages.txt (default: conda-packages.txt)
-  shell: <string> # relative path to a shell script for system package installation (default: dependencies.sh)
-processes_per_replica: <int>  # the number of parallel serving processes to run on each replica (default: 1)
+
+# concurrency
 threads_per_process: <int>  # the number of threads per process (default: 1)
+processes_per_replica: <int>  # the number of parallel serving processes to run on each replica (default: 1)
 max_replica_concurrency: <int> # max concurrency (default: processes_per_replica * threads_per_process)
+
+# server side batching
 server_side_batching: # (optional)
   max_batch_size: <int>  # the maximum number of requests to aggregate before running inference
   batch_interval: <float>  # the maximum amount of time in seconds to spend waiting for additional requests before running inference on the batch of requests
+
+# misc
 use_local_cortex_libs: <bool> # use the local cortex libs, useful when developing the nucleus model server (default: false)
 tfs_container_dns: <string> # the address of the TFS container for when the tensorflow type is used (default: "localhost")
 log_level: <string>  # log level that can be "debug", "info", "warning" or "error" (default: "info")
@@ -130,7 +150,7 @@ class Handler:
 ## Pod integration
 
 When deploying a Nucleus model server within a K8s pod, there are some things to keep in mind:
-* A readiness probe can be added for checking when `/run/workspace/api_readiness.txt` is present on the filesystem. This is highly recommended as otherwise, your pod could refuse requests before it's ready.
+* A readiness probe can be added to check when `/run/workspace/api_readiness.txt` is present on the filesystem. This is highly recommended as otherwise, your pod could refuse requests before it's ready.
 * A shared volume (at `/mnt`) between the handler container and the TFS container is necessary. This is only necessary when the `type` is of `tensorflow`.
 
 ## Multi-model
@@ -274,13 +294,9 @@ The Python and TensorFlow handlers allow for the use of the following 2 fields i
 
 * `batch_interval`: The maximum amount of time to spend waiting for additional requests before running inference on the batch of requests. If fewer than `max_batch_size` requests are received after waiting the full `batch_interval`, then inference will run on the requests that have been received. This is an instrument for controlling latency.
 
-{% hint style="note" %}
-Server-side batching is not supported for Nucleus servers that use the gRPC protocol.
-{% endhint %}
+*Note: Server-side batching is not supported for Nucleus servers that use the gRPC protocol.*
 
-{% hint style="note" %}
-Server-side batching is only supported on the `handle_post` method.
-{% endhint %}
+*Note: Server-side batching is only supported on the `handle_post` method.*
 
 ### Python Handler
 
