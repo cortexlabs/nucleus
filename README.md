@@ -22,7 +22,7 @@ The Nucleus is a model server for TensorFlow and generic Python models. The Nucl
   * [HTTP](#http)
   * [gRPC](#grpc)
   * [Structured logging](#structured-logging)
-  * [Replica parallelism](#replica-parallelism)
+  * [Nucleus parallelism](#nucleus-parallelism)
   * [Models](#models)
     * [Python Handler](#python-handler)
     * [Tensorflow Handler](#tensorflow-handler)
@@ -99,7 +99,7 @@ multi_model_reloading: # use this to serve one or more models with live reloadin
 
 # concurrency
 threads_per_process: <int>  # the number of threads per process (default: 1)
-processes_per_replica: <int>  # the number of parallel serving processes to run on each replica (default: 1)
+processes_per_replica: <int>  # the number of parallel serving processes to run on each Nucleus instance (default: 1)
 max_replica_concurrency: <int> # max concurrency (default: processes_per_replica * threads_per_process)
 
 # server side batching
@@ -271,7 +271,7 @@ class Handler:
 
 ## Multi-model caching
 
-Multi-model caching allows each replica to serve more models than would fit into its memory by keeping a specified number of models in memory (and disk) at a time. When the in-memory model limit is reached, the least recently accessed model is evicted from the cache. This can be useful when you have many models, and some models are frequently accessed while a larger portion of them are rarely used, or when running on smaller instances to control costs.
+Multi-model caching allows Nucleus to serve more models than would fit into its memory by keeping a specified number of models in memory (and disk) at a time. When the in-memory model limit is reached, the least recently accessed model is evicted from the cache. This can be useful when you have many models, and some models are frequently accessed while a larger portion of them are rarely used, or when running on smaller instances to control costs.
 
 The model cache is a two-layer cache, configured by the following parameters in the `models` configuration:
 
@@ -857,15 +857,15 @@ The dictionary passed in via the `extra` will be flattened by one level. e.g.
 
 To avoid overriding essential metadata, please refrain from specifying the following extra keys: `asctime`, `levelname`, `message`, `labels`, and `process`. When used with a Cortex cluster, log lines greater than 5 MB in size will be ignored.
 
-## Replica parallelism
+## Nucleus parallelism
 
-Replica parallelism can be configured with the following fields in the Nucleus configuration:
+Nucleus server parallelism can be configured with the following fields in the Nucleus configuration:
 
-* `processes_per_replica` (default: 1): Each replica runs a web server with `processes_per_replica` processes. For Nucleus servers with multiple CPUs, using 1-3 processes per unit of CPU generally leads to optimal throughput. For example, if `cpu` is 2, a value between 2 and 6 `processes_per_replica` is reasonable. The optimal number will vary based on the workload's characteristics and the CPU compute request for the Nucleus server.
+* `processes_per_replica` (default: 1): Each Nucleus runs a web server with `processes_per_replica` processes. For Nucleus servers with multiple CPUs, using 1-3 processes per unit of CPU generally leads to optimal throughput. For example, if `cpu` is 2, a value between 2 and 6 `processes_per_replica` is reasonable. The optimal number will vary based on the workload's characteristics and the CPU compute request for the Nucleus server.
 
 * `threads_per_process` (default: 1): Each process uses a thread pool of size `threads_per_process` to process requests. For applications that are not CPU intensive such as high I/O (e.g. downloading files) or GPU-based inference, increasing the number of threads per process can increase throughput. For CPU-bound applications such as running your model inference on a CPU, using 1 thread per process is recommended to avoid unnecessary context switching. Some applications are not thread-safe, and therefore must be run with 1 thread per process.
 
-`processes_per_replica` * `threads_per_process` represents the total number of requests that your replica can work on concurrently. For example, if `processes_per_replica` is 2 and `threads_per_process` is 2, and the replica was hit with 5 concurrent requests, 4 would immediately begin to be processed, and 1 would be waiting for a thread to become available. If the replica were hit with 3 concurrent requests, all three would begin processing immediately.
+`processes_per_replica` * `threads_per_process` represents the total number of requests that your Nucleus server can work on concurrently. For example, if `processes_per_replica` is 2 and `threads_per_process` is 2, and the Nucleus server gets hit with 5 concurrent requests, 4 would immediately begin to be processed, and 1 would be waiting for a thread to become available. If the Nucleus server were to be hit with 3 concurrent requests, all three would begin processing immediately.
 
 ## Models
 
@@ -1143,7 +1143,7 @@ Nucleus provides a `tensorflow_client` to your Handler's constructor. `tensorflo
 
 When multiple models are defined using the Handler's `models` field, the `tensorflow_client.predict()` method expects a second argument `model_name` which must hold the name of the model that you want to use for inference (for example: `self.client.predict(payload, "text-generator")`). There is also an optional third argument to specify the model version.
 
-If you need to share files between your handler implementation and the TensorFlow Serving container, you can create a new directory within `/mnt` (e.g. `/mnt/user`) and write files to it. The entire `/mnt` directory is shared between containers, but do not write to any of the directories in `/mnt` that already exist (they are used internally by Nucleus).
+If you need to share files between your handler implementation and the TensorFlow Serving container, you can create a new directory within `/mnt` (e.g. `/mnt/user`) and write files to it. **The entire `/mnt` directory is supposed to be shared between containers**, but do not write to any of the directories in `/mnt` that already exist (they are used internally by Nucleus).
 
 #### `predict` method
 
