@@ -1,6 +1,6 @@
 import setuptools
 
-CORTEX_MODEL_SERVER_VERSION="master"
+CORTEX_MODEL_SERVER_VERSION = "master"
 
 with open("requirements.txt") as fp:
     install_requires = fp.read()
@@ -24,7 +24,7 @@ setuptools.setup(
     package_data={"": ["templates/*"]},
     entry_points="""
         [console_scripts]
-        nucleus-builder=main:main
+        nucleus=main:cli
     """,
     project_urls={
         "Bug Reports": "https://github.com/cortexlabs/nucleus/issues",

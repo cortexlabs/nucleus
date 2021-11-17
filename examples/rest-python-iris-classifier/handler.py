@@ -3,6 +3,7 @@ import pickle
 
 labels = ["setosa", "versicolor", "virginica"]
 
+
 class Handler:
     def __init__(self, config, model_client):
         self.client = model_client
