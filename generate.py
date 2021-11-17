@@ -1,3 +1,4 @@
+import os
 from typing import List
 
 import pkgutil
@@ -149,11 +150,10 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
     handler_template = pkgutil.get_data(__name__, "templates/handler.Dockerfile")
     base_image = "ubuntu:18.04"
     cortex_image_type = "python-handler-cpu"
-    # if os.environ["CORTEX_TELEMETRY_SENTRY_DSN"]:
-    #     cortex_sentry_dsn = os.getenv("CORTEX_TELEMETRY_SENTRY_DSN")
-    # else:
-    cortex_sentry_dsn = "https://5cea3d2d67194d028f7191fcc6ebca14@sentry.io/1825326"
-    cortex_telemetry_sentry_environment = "nucleus"
+    if os.getenv("CORTEX_TELEMETRY_SENTRY_DSN"):
+        cortex_sentry_dsn = os.environ["CORTEX_TELEMETRY_SENTRY_DSN"]
+    else:
+        cortex_sentry_dsn = ""
 
     if (
         config["type"] == "python"
@@ -203,14 +203,20 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
     ]
     if dev_env:
         handler_lines += ["", "COPY src/ /src/"]
+    env_lines = []
+    if cortex_sentry_dsn == "":
+        env_lines += ["ENV CORTEX_LOG_CONFIG_FILE=/src/cortex/log_config.yaml"]
+    else:
+        env_lines += [
+            "ENV CORTEX_LOG_CONFIG_FILE=/src/cortex/log_config.yaml \\",
+            f'    CORTEX_TELEMETRY_SENTRY_DSN="{cortex_sentry_dsn}"',
+        ]
     handler_lines += [
         "RUN mkdir -p /usr/local/cortex/ && \\",
         "    cp /src/cortex/init/install-core-dependencies.sh /usr/local/cortex/install-core-dependencies.sh && \\",
         "    chmod +x /usr/local/cortex/install-core-dependencies.sh && \\",
         "    /usr/local/cortex/install-core-dependencies.sh",
-        "ENV CORTEX_LOG_CONFIG_FILE /src/cortex/log_config.yaml \\",
-        f'   CORTEX_TELEMETRY_SENTRY_DSN "{cortex_sentry_dsn}" \\',
-        f"   CORTEX_TELEMETRY_SENTRY_ENVIRONMENT {cortex_telemetry_sentry_environment}",
+        *env_lines,
         "",
         "RUN pip install --no-deps /src/cortex/ && \\",
         "    mv /src/cortex/init/bootloader.sh /etc/cont-init.d/bootloader.sh",

@@ -21,6 +21,9 @@ from sentry_sdk.integrations.threading import ThreadingIntegration
 
 import cortex_internal.lib.exceptions as cexp
 
+PRODUCTION_DSN = "https://5cea3d2d67194d028f7191fcc6ebca14@sentry.io/1825326"
+SENTRY_ENVIRONMENT = "nucleus"
+
 
 def get_default_tags():
     vars = {
@@ -37,34 +40,35 @@ def get_default_tags():
 
 
 def init_sentry(
-    dsn: str = "",
-    environment: str = "",
+    dsn: str = "",  # default value is PRODUCTION_DSN
+    environment: str = "",  # default value is SENTRY_ENVIRONMENT
     release: str = "",
     tags: dict = {},
     disabled: Optional[bool] = None,
 ):
     """
-    Initialize sentry. If no arguments are passed in, the following env vars will be used instead.
-    1. dsn -> CORTEX_TELEMETRY_SENTRY_DSN
-    2. environment -> CORTEX_TELEMETRY_SENTRY_ENVIRONMENT
+    Initialize sentry. If no arguments are passed in, the following env vars will be used instead:
+    1. dsn -> if the provided dsn is different from the default value and CORTEX_TELEMETRY_SENTRY_DSN is exported, the value of the environment value will be used instead.
+    2. environment -> if the provided environment is different from the default value and CORTEX_TELEMETRY_SENTRY_ENVIRONMENT is exported, the value of the environment value will be used instead.
     3. release -> CORTEX_MODEL_SERVER_VERSION
     4. disabled -> CORTEX_TELEMETRY_DISABLE
 
     In addition to that, the user ID tag is added to every reported event.
     """
-
-    if (
-        disabled is True
-        or os.getenv("CORTEX_TELEMETRY_DISABLE", "").lower() == "true"
-        or os.getenv("CORTEX_DEBUGGING", "true").lower() == "true"
-    ):
+    if disabled is True or os.getenv("CORTEX_TELEMETRY_DISABLE", "").lower() == "true":
         return
 
     if dsn == "":
-        dsn = os.environ["CORTEX_TELEMETRY_SENTRY_DSN"]
+        if os.getenv("CORTEX_TELEMETRY_SENTRY_DSN") is not None:
+            dsn = os.environ["CORTEX_TELEMETRY_SENTRY_DSN"]
+        else:
+            dsn = PRODUCTION_DSN
 
     if environment == "":
-        environment = os.environ["CORTEX_TELEMETRY_SENTRY_ENVIRONMENT"]
+        if os.getenv("CORTEX_TELEMETRY_SENTRY_ENVIRONMENT") is not None:
+            environment = os.environ["CORTEX_TELEMETRY_SENTRY_ENVIRONMENT"]
+        else:
+            environment = SENTRY_ENVIRONMENT
 
     if release == "":
         release = os.environ["CORTEX_MODEL_SERVER_VERSION"]

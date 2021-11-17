@@ -17,7 +17,7 @@ import pathlib
 import pkg_resources
 from setuptools import setup, find_packages
 
-CORTEX_MODEL_SERVER_VERSION="master"
+CORTEX_MODEL_SERVER_VERSION = "master"
 
 with pathlib.Path("cortex_internal.requirements.txt").open() as requirements_txt:
     install_requires = [
