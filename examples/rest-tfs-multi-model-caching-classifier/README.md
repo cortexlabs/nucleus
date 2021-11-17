@@ -17,7 +17,7 @@ When making a prediction with [sample-image.json](sample-image.json), the follow
 Make a request to the ResNet50 model:
 
 ```bash
-curl "http://localhost:8888/?model=resnet50" -X POST -H "Content-Type: application/json" -d @sample-image.json
+curl "http://localhost:8080/?model=resnet50" -X POST -H "Content-Type: application/json" -d @sample-image.json
 ```
 
 The expected response is:
@@ -33,7 +33,7 @@ Loading the following model will evict the previously loaded model from memory b
 Make a request to the Inception model:
 
 ```bash
-curl "http://localhost:8888/?model=inception" -X POST -H "Content-Type: application/json" -d @sample-image.json
+curl "http://localhost:8080/?model=inception" -X POST -H "Content-Type: application/json" -d @sample-image.json
 ```
 
 The expected response is:

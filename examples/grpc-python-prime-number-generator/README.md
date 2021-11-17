@@ -14,7 +14,7 @@ import grpc
 import generator_pb2
 import generator_pb2_grpc
 
-grpc_endpoint = "localhost:8888"
+grpc_endpoint = "localhost:8080"
 channel = grpc.insecure_channel(grpc_endpoint)
 stub = generator_pb2_grpc.GeneratorStub(channel)
 for r in stub.Predict(generator_pb2.Input(prime_numbers_to_generate=5)):

@@ -39,7 +39,7 @@ The Nucleus is a model server for TensorFlow and generic Python models. The Nucl
 # Getting started
 
 ```bash
-pip install https://github.com/cortexlabs/nucleus.git@v0.1.0
+pip install git+https://github.com/cortexlabs/nucleus.git@master
 ```
 
 ```bash
@@ -72,7 +72,7 @@ dependencies:
   conda: <string> # relative path to conda-packages.txt (default: conda-packages.txt)
   shell: <string> # relative path to a shell script for system package installation (default: dependencies.sh)
 
-serve_port: <int> # nucleus serve port from which requests can be made (default: 8888)
+serve_port: <int> # nucleus serve port from which requests can be made (default: 8080)
 env: # environment vars to be exported to the model server
   # <string: string>  # dictionary of environment variables
 config: # dictionary config to be passed to the model server constructor
@@ -438,7 +438,7 @@ Here are some examples:
 ##### Making the request
 
 ```bash
-curl http://localhost:8888/ \
+curl http://localhost:8080/ \
     -X POST -H "Content-Type: application/json" \
     -d '{"key": "value"}'
 ```
@@ -461,7 +461,7 @@ class Handler:
 ##### Making the request
 
 ```bash
-curl http://localhost:8888/ \
+curl http://localhost:8080/ \
     -X POST -H "Content-Type: application/octet-stream" \
     --data-binary @object.pkl
 ```
@@ -502,7 +502,7 @@ class Handler:
 ##### Making the request
 
 ```bash
-curl http://localhost:8888/ \
+curl http://localhost:8080/ \
     -X POST \
     -F "text=@text.txt" \
     -F "object=@object.pkl" \
@@ -537,7 +537,7 @@ class Handler:
 ##### Making the request
 
 ```bash
-curl http://localhost:8888/ \
+curl http://localhost:8080/ \
     -X POST \
     -d "key=value"
 ```
@@ -560,7 +560,7 @@ class Handler:
 ##### Making the request
 
 ```bash
-curl http://localhost:8888/ \
+curl http://localhost:8080/ \
     -X POST -H "Content-Type: text/plain" \
     -d "hello world"
 ```
@@ -686,7 +686,7 @@ rpc Predict (Sample) returns (Response);
 ```python
 import grpc, handler_pb2, handler_pb2_grpc
 
-stub = handler_pb2_grpc.HandlerStub(grpc.insecure_channel("http://localhost:8888/"))
+stub = handler_pb2_grpc.HandlerStub(grpc.insecure_channel("http://localhost:8080/"))
 stub.Predict(handler_pb2.Sample(a="text"))
 ```
 
@@ -720,7 +720,7 @@ def generate_iterator(sample_list):
     for sample in sample_list:
         yield sample
 
-stub = handler_pb2_grpc.HandlerStub(grpc.insecure_channel("http://localhost:8888/"))
+stub = handler_pb2_grpc.HandlerStub(grpc.insecure_channel("http://localhost:8080/"))
 stub.Predict(handler_pb2.Sample(generate_iterator(["a", "b", "c", "d"])))
 ```
 
@@ -778,7 +778,7 @@ rpc Predict (Sample) returns (Response);
 ```python
 import grpc, handler_pb2, handler_pb2_grpc
 
-stub = handler_pb2_grpc.HandlerStub(grpc.insecure_channel("http://localhost:8888/"))
+stub = handler_pb2_grpc.HandlerStub(grpc.insecure_channel("http://localhost:8080/"))
 r = stub.Predict(handler_pb2.Sample())
 ```
 
@@ -812,7 +812,7 @@ def generate_iterator(sample_list):
     for sample in sample_list:
         yield sample
 
-stub = handler_pb2_grpc.HandlerStub(grpc.insecure_channel("http://localhost:8888/"))
+stub = handler_pb2_grpc.HandlerStub(grpc.insecure_channel("http://localhost:8080/"))
 for r in stub.Predict(handler_pb2.Sample())):
     print(r.b)
 ```

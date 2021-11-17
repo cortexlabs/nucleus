@@ -40,7 +40,7 @@ def main(model_server_config_path: str):
         server_config["config"] = {}
 
     if "serve_port" not in server_config:
-        server_config["serve_port"] = 8888
+        server_config["serve_port"] = 8080
 
     if "processes" not in server_config:
         server_config["processes"] = 1

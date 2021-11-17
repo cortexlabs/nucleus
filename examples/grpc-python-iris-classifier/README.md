@@ -21,7 +21,7 @@ sample = iris_classifier_pb2.Sample(
     petal_width=0.3
 )
 
-grpc_endpoint = "localhost:8888"
+grpc_endpoint = "localhost:8080"
 channel = grpc.insecure_channel(grpc_endpoint)
 stub = iris_classifier_pb2_grpc.HandlerStub(channel)
 
