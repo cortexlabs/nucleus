@@ -25,6 +25,7 @@ def extract_from_handler(server_config: dict) -> dict:
 
     env_vars = {
         "CORTEX_LOG_LEVEL": server_config["log_level"].upper(),
+        "CORTEX_SERVING_PORT": server_config["serve_port"],
         "CORTEX_PROCESSES": server_config["processes"],
         "CORTEX_THREADS_PER_PROCESS": server_config["threads_per_process"],
         "CORTEX_DEPENDENCIES_PIP": server_config["dependencies"]["pip"],
@@ -76,7 +77,6 @@ def main(model_server_config_path: str):
         server_config = yaml.safe_load(f)
 
     env_vars = {
-        "CORTEX_SERVING_PORT": 8888,
         "CORTEX_PROJECT_DIR": "/src/project",
         "CORTEX_MODEL_DIR": "/mnt/model",
         "CORTEX_LOG_CONFIG_FILE": "/src/cortex/log_config.yaml",

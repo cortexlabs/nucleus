@@ -5,7 +5,7 @@ The Nucleus is a model server for TensorFlow and generic Python models. The Nucl
 1. TensorFlow models.
 1. Generic Python models (PyTorch, ONNX, Sklearn, MLFlow, Numpy, Pandas, Caffe, etc) with custom loader.
 1. Models as S3 paths.
-1. Model reloading triggered on S3 change.
+1. Model reloading triggered on upstream change (S3 buckets).
 1. Model caching based on LRU policy.
 1. Model versions.
 
@@ -43,21 +43,13 @@ pip install https://github.com/cortexlabs/nucleus.git@v0.1.0
 ```
 
 ```bash
-$ nucleus-builder --help
-Usage: nucleus-builder [OPTIONS]
+$ nucleus generate --help
+Usage: nucleus generate [OPTIONS] CONFIG
 
-  A Cortex utility to build model servers without caring about dockerfiles
+  A Cortex utility to generate Dockerfile Nucleus model servers
 
 Options:
-  --path-to-config TEXT           Path to model server config; the config's
-                                  dir represents the target dir project
-                                  [default: nucleus-model-server-config.yaml]
-
-  --dockerfile-output-prefix TEXT
-                                  The output dockerfile(s)' prefix  [default:
-                                  nucleus-model-server]
-
-  --help                          Show this message and exit.
+  --help  Show this message and exit.
 ```
 
 # Configuration
@@ -70,9 +62,9 @@ type: <string> # python/tensorflow (required)
 # versions
 py_version: <string> # python version (default: 3.6.9)
 tfs_version: <string> # tensorflow version for when the tensorflow type is used (default: 2.3.0)
-gpu_version: # gpu version if gpu is present(optional)
-  cuda: <string> # cuda version (required)
-  cudnn: <string> # cudnn version (required)
+gpu_version: # gpu version if gpu is present (optional)
+  cuda: <string> # cuda version (tested with 10.0, 10.1, 10.2, 11.0, 11.1) (required)
+  cudnn: <string> # cudnn version (tested with 7 and 8) (required)
 
 # dependencies
 dependencies:
@@ -80,6 +72,7 @@ dependencies:
   conda: <string> # relative path to conda-packages.txt (default: conda-packages.txt)
   shell: <string> # relative path to a shell script for system package installation (default: dependencies.sh)
 
+serve_port: <int> # nucleus serve port from which requests can be made (default: 8888)
 env: # environment vars to be exported to the model server
   # <string: string>  # dictionary of environment variables
 config: # dictionary config to be passed to the model server constructor
@@ -115,12 +108,11 @@ log_level: <string>  # log level that can be "debug", "info", "warning" or "erro
 
 ## Project files
 
-Nucleus makes all files in the project directory (i.e. the directory which contains `nucleus-model-server-config.yaml`) available for use in your Handler class implementation. Python bytecode files (`*.pyc`, `*.pyo`, `*.pyd`), files or folders that start with `.`, and the Nucleus configuration file (e.g. `nucleus-model-server-config.yaml`) are excluded.
+Nucleus makes all files in the project directory (i.e. the directory which contains `nucleus-model-server-config.yaml`) available for use in your Handler class implementation.
 
 The following files can also be added at the root of the project's directory:
 
-* `.cortexignore` file, which follows the same syntax and behavior as a [.gitignore file](https://git-scm.com/docs/gitignore). This may be necessary if you are reaching the size limit for your project directory (32mb).
-* `.env` file, which exports environment variables that can be used in the handler. Each line of this file must follow the `VARIABLE=value` format.
+The `.env` file can be added at the root of the project's directory. It exports environment variables that can be used in the handler. Each line of this file must follow the `VARIABLE=value` format.
 
 For example, if your directory looks like this:
 
@@ -152,6 +144,7 @@ class Handler:
 When deploying a Nucleus model server within a K8s pod, there are some things to keep in mind:
 * A readiness probe can be added to check when `/run/workspace/api_readiness.txt` is present on the filesystem. This is highly recommended as otherwise, your pod could refuse requests before it's ready.
 * A shared volume (at `/mnt`) between the handler container and the TFS container is necessary. This is only necessary when the `type` is of `tensorflow`.
+* The host of the TFS container has to be specified in the model server config (`model-server-config.yaml`) so that the handler container can connect to it. This is only necessary when the `type` is of `tensorflow`.
 
 ## Multi-model
 
@@ -282,7 +275,7 @@ Both of these fields must be specified, in addition to either the `dir` or `path
 
 ### Out of memory errors
 
-Cortex runs a background process every 10 seconds that counts the number of models in memory and on disk, and evicts the least recently used models if the count exceeds `cache_size` / `disk_cache_size`. If many new models are requested between executions of the process, there may be more models in memory and/or on disk than the configured `cache_size` or `disk_cache_size` limits which could lead to out of memory errors.
+Nucleus runs a background process every 10 seconds that counts the number of models in memory and on disk, and evicts the least recently used models if the count exceeds `cache_size` / `disk_cache_size`. If many new models are requested between executions of the process, there may be more models in memory and/or on disk than the configured `cache_size` or `disk_cache_size` limits which could lead to out of memory errors.
 
 ## Server-side batching
 

@@ -36,6 +36,8 @@ def validate_config(config: dict):
     if "use_local_cortex_libs" not in config:
         config["use_local_cortex_libs"] = False
 
+    if "serve_port" not in config:
+        config["serve_port"] = 8888
     if "processes" not in config:
         config["processes"] = 1
     if "threads_per_process" not in config:

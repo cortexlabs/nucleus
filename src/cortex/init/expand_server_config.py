@@ -39,6 +39,9 @@ def main(model_server_config_path: str):
     if "config" not in server_config:
         server_config["config"] = {}
 
+    if "serve_port" not in server_config:
+        server_config["serve_port"] = 8888
+
     if "processes" not in server_config:
         server_config["processes"] = 1
     if "threads_per_process" not in server_config:
