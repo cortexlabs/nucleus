@@ -143,10 +143,10 @@ class RealtimeAPI:
             return
 
         self.caching_enabled = self._is_model_caching_enabled()
-        self.multiple_processes = self._model_server_config["processes_per_replica"] > 1
+        self.multiple_processes = self._model_server_config["processes"] > 1
 
-        # model caching can only be enabled when processes_per_replica is 1
-        # model side-reloading is supported for any number of processes_per_replica
+        # model caching can only be enabled when processes is 1
+        # model side-reloading is supported for any number of processes
 
         if self.caching_enabled:
             if self.type == PythonHandlerType:

@@ -99,8 +99,8 @@ multi_model_reloading: # use this to serve one or more models with live reloadin
 
 # concurrency
 threads_per_process: <int>  # the number of threads per process (default: 1)
-processes_per_replica: <int>  # the number of parallel serving processes to run on each Nucleus instance (default: 1)
-max_replica_concurrency: <int> # max concurrency (default: processes_per_replica * threads_per_process)
+processes: <int>  # the number of parallel serving processes to run on each Nucleus instance (default: 1)
+max_replica_concurrency: <int> # max concurrency (default: processes * threads_per_process)
 
 # server side batching
 server_side_batching: # (optional)
@@ -278,7 +278,7 @@ The model cache is a two-layer cache, configured by the following parameters in 
 * `cache_size` sets the number of models to keep in memory
 * `disk_cache_size` sets the number of models to keep on disk (must be greater than or equal to `cache_size`)
 
-Both of these fields must be specified, in addition to either the `dir` or `paths` field (which specifies the model paths, see [models](#models) for documentation). Multi-model caching is only supported if `processes_per_replica` is set to 1 (the default value).
+Both of these fields must be specified, in addition to either the `dir` or `paths` field (which specifies the model paths, see [models](#models) for documentation). Multi-model caching is only supported if `processes` is set to 1 (the default value).
 
 ### Out of memory errors
 
@@ -362,7 +362,7 @@ When optimizing for maximum throughput, a good rule of thumb is to follow these 
 1. Determine the highest `batch_interval` with which you are still comfortable for your application. Keep in mind that the batch interval is not the only component of the overall latency - the inference on the batch and the pre/post processing also have to occur.
 1. Multiply the maximum throughput from step 1 by the `batch_interval` from step 2. The result is a number which you can assign to `max_batch_size`.
 1. Run the load test again. If the inference fails with that batch size (e.g. due to running out of GPU or RAM memory), then reduce `max_batch_size` to a level that works (reduce `batch_interval` by the same factor).
-1. Use the load test to determine the peak throughput of the Nucleus server. Multiply the observed throughput by the `batch_interval` to calculate the average batch size. If the average batch size coincides with `max_batch_size`, then it might mean that the throughput could still be further increased by increasing `max_batch_size`. If it's lower, then it means that `batch_interval` is triggering the inference before `max_batch_size` requests have been aggregated. If modifying both `max_batch_size` and `batch_interval` doesn't improve the throughput, then the service may be bottlenecked by something else (e.g. CPU, network IO, `processes_per_replica`, `threads_per_process`, etc).
+1. Use the load test to determine the peak throughput of the Nucleus server. Multiply the observed throughput by the `batch_interval` to calculate the average batch size. If the average batch size coincides with `max_batch_size`, then it might mean that the throughput could still be further increased by increasing `max_batch_size`. If it's lower, then it means that `batch_interval` is triggering the inference before `max_batch_size` requests have been aggregated. If modifying both `max_batch_size` and `batch_interval` doesn't improve the throughput, then the service may be bottlenecked by something else (e.g. CPU, network IO, `processes`, `threads_per_process`, etc).
 
 
 
@@ -861,11 +861,11 @@ To avoid overriding essential metadata, please refrain from specifying the follo
 
 Nucleus server parallelism can be configured with the following fields in the Nucleus configuration:
 
-* `processes_per_replica` (default: 1): Each Nucleus runs a web server with `processes_per_replica` processes. For Nucleus servers with multiple CPUs, using 1-3 processes per unit of CPU generally leads to optimal throughput. For example, if `cpu` is 2, a value between 2 and 6 `processes_per_replica` is reasonable. The optimal number will vary based on the workload's characteristics and the CPU compute request for the Nucleus server.
+* `processes` (default: 1): Each Nucleus runs a web server with `processes` processes. For Nucleus servers with multiple CPUs, using 1-3 processes per unit of CPU generally leads to optimal throughput. For example, if `cpu` is 2, a value between 2 and 6 `processes` is reasonable. The optimal number will vary based on the workload's characteristics and the CPU compute request for the Nucleus server.
 
 * `threads_per_process` (default: 1): Each process uses a thread pool of size `threads_per_process` to process requests. For applications that are not CPU intensive such as high I/O (e.g. downloading files) or GPU-based inference, increasing the number of threads per process can increase throughput. For CPU-bound applications such as running your model inference on a CPU, using 1 thread per process is recommended to avoid unnecessary context switching. Some applications are not thread-safe, and therefore must be run with 1 thread per process.
 
-`processes_per_replica` * `threads_per_process` represents the total number of requests that your Nucleus server can work on concurrently. For example, if `processes_per_replica` is 2 and `threads_per_process` is 2, and the Nucleus server gets hit with 5 concurrent requests, 4 would immediately begin to be processed, and 1 would be waiting for a thread to become available. If the Nucleus server were to be hit with 3 concurrent requests, all three would begin processing immediately.
+`processes` * `threads_per_process` represents the total number of requests that your Nucleus server can work on concurrently. For example, if `processes` is 2 and `threads_per_process` is 2, and the Nucleus server gets hit with 5 concurrent requests, 4 would immediately begin to be processed, and 1 would be waiting for a thread to become available. If the Nucleus server were to be hit with 3 concurrent requests, all three would begin processing immediately.
 
 ## Models
 

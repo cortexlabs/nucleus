@@ -100,7 +100,7 @@ if [ $CORTEX_SERVING_PROTOCOL = "grpc" ]; then
 fi
 
 # prepare servers
-for i in $(seq 1 $CORTEX_PROCESSES_PER_REPLICA); do
+for i in $(seq 1 $CORTEX_PROCESSES); do
     # prepare uvicorn workers
     if [ $CORTEX_SERVING_PROTOCOL = "http" ]; then
         create_s6_service "uvicorn-$((i-1))" "cd /src/project && $source_env_file_cmd && PYTHONUNBUFFERED=TRUE PYTHONPATH=$PYTHONPATH:$CORTEX_PYTHON_PATH exec /opt/conda/envs/env/bin/python /src/cortex/start/server.py /run/servers/proc-$((i-1)).sock"

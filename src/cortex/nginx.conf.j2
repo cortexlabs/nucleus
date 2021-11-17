@@ -24,7 +24,7 @@ daemon off;
 worker_rlimit_nofile 65535;
 worker_processes 1;
 
-thread_pool pool threads={{ CORTEX_PROCESSES_PER_REPLICA | int }};
+thread_pool pool threads={{ CORTEX_PROCESSES | int }};
 
 events {
     # max num requests = (worker_processes * worker_connections ) / 2 for reverse proxy
@@ -60,7 +60,7 @@ http {
         # load balancing policy
         least_conn;
 
-        {% for i in range(CORTEX_PROCESSES_PER_REPLICA | int) %}
+        {% for i in range(CORTEX_PROCESSES | int) %}
         {% if CORTEX_SERVING_PROTOCOL == 'http' %}
         server unix:/run/servers/proc-{{ i }}.sock;
         {% endif %}

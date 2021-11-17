@@ -39,8 +39,8 @@ def main(model_server_config_path: str):
     if "config" not in server_config:
         server_config["config"] = {}
 
-    if "processes_per_replica" not in server_config:
-        server_config["processes_per_replica"] = 1
+    if "processes" not in server_config:
+        server_config["processes"] = 1
     if "threads_per_process" not in server_config:
         server_config["threads_per_process"] = 1
     if "max_replica_concurrency" not in server_config:

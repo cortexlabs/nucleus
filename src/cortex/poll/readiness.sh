@@ -16,7 +16,7 @@
 
 while true; do
     procs_ready="$(ls /run/workspace/proc-*-ready.txt 2>/dev/null | wc -l)"
-    if [ "$CORTEX_PROCESSES_PER_REPLICA" = "$procs_ready" ] && curl --silent "localhost:$CORTEX_SERVING_PORT/nginx_status" --output /dev/null; then
+    if [ "$CORTEX_PROCESSES" = "$procs_ready" ] && curl --silent "localhost:$CORTEX_SERVING_PORT/nginx_status" --output /dev/null; then
         touch /run/workspace/api_readiness.txt
         break
     fi

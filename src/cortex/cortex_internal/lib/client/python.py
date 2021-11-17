@@ -56,7 +56,7 @@ class ModelClient:
             model_dir: Where the models are saved on disk.
 
             models_tree: A tree of the available models from upstream.
-            lock_dir: Where the resource locks are found. Only when processes_per_replica > 0 and caching disabled.
+            lock_dir: Where the resource locks are found. Only when processes > 0 and caching disabled.
             load_model_fn: Function to load model into memory.
         """
 
@@ -77,7 +77,7 @@ class ModelClient:
             self._models_dir = False
             self._spec_model_names = self._spec_models.get_field("name")
 
-        self._multiple_processes = self._model_server_config["processes_per_replica"] > 1
+        self._multiple_processes = self._model_server_config["processes"] > 1
         self._caching_enabled = self._is_model_caching_enabled()
 
         if callable(load_model_fn):
@@ -343,7 +343,7 @@ class ModelClient:
     def _get_latest_model_version_from_disk(self, model_name: str) -> str:
         """
         Get the highest version for a specific model name.
-        Must only be used when processes_per_replica > 0 and caching disabled.
+        Must only be used when processes > 0 and caching disabled.
         """
         versions, timestamps = find_ondisk_model_info(self._lock_dir, model_name)
         if len(versions) == 0:
@@ -357,7 +357,7 @@ class ModelClient:
     def _get_latest_model_version_from_tree(self, model_name: str, model_info: dict) -> str:
         """
         Get the highest version for a specific model name.
-        Must only be used when processes_per_replica = 1 and caching is enabled.
+        Must only be used when processes = 1 and caching is enabled.
         """
         versions, timestamps = model_info["versions"], model_info["timestamps"]
         return str(max(map(lambda x: int(x), versions)))

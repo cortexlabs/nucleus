@@ -25,12 +25,12 @@ def extract_from_handler(server_config: dict) -> dict:
 
     env_vars = {
         "CORTEX_LOG_LEVEL": server_config["log_level"].upper(),
-        "CORTEX_PROCESSES_PER_REPLICA": server_config["processes_per_replica"],
+        "CORTEX_PROCESSES": server_config["processes"],
         "CORTEX_THREADS_PER_PROCESS": server_config["threads_per_process"],
         "CORTEX_DEPENDENCIES_PIP": server_config["dependencies"]["pip"],
         "CORTEX_DEPENDENCIES_CONDA": server_config["dependencies"]["conda"],
         "CORTEX_DEPENDENCIES_SHELL": server_config["dependencies"]["shell"],
-        "CORTEX_MAX_REPLICA_CONCURRENCY": int(server_config["processes_per_replica"])
+        "CORTEX_MAX_REPLICA_CONCURRENCY": int(server_config["processes"])
         * int(server_config["threads_per_process"]),
     }
 

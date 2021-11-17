@@ -19,7 +19,7 @@ dependencies:
   pip: <string>  # relative path to requirements.txt (default: requirements.txt)
   conda: <string>  # relative path to conda-packages.txt (default: conda-packages.txt)
   shell: <string>  # relative path to a shell script for system package installation (default: dependencies.sh)
-processes_per_replica: 2  # the number of parallel serving processes to run on each replica (default: 1)
+processes: 2  # the number of parallel serving processes to run (default: 1)
 threads_per_process: 2  # the number of threads per process (default: 1)
 max_replica_concurrency: 4 # max concurrency
 server_side_batching:  # (optional)

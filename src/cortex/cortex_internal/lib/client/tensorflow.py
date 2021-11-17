@@ -53,9 +53,9 @@ class TensorFlowClient:
             tf_serving_url: Localhost URL to TF Serving container (i.e. "localhost:9000")
             model_server_config: API configuration.
 
-            models: Holding all models into memory. Only when processes_per_replica = 1 and caching enabled.
-            model_dir: Where the models are saved on disk. Only when processes_per_replica = 1 and caching enabled.
-            models_tree: A tree of the available models from upstream. Only when processes_per_replica = 1 and caching enabled.
+            models: Holding all models into memory. Only when processes = 1 and caching enabled.
+            model_dir: Where the models are saved on disk. Only when processes = 1 and caching enabled.
+            models_tree: A tree of the available models from upstream. Only when processes = 1 and caching enabled.
         """
 
         self.tf_serving_url = tf_serving_url
@@ -76,7 +76,7 @@ class TensorFlowClient:
             self._models_dir = False
             self._spec_model_names = self._spec_models.get_field("name")
 
-        self._multiple_processes = self._model_server_config["processes_per_replica"] > 1
+        self._multiple_processes = self._model_server_config["processes"] > 1
         self._caching_enabled = self._is_model_caching_enabled()
 
         if self._models:
@@ -161,8 +161,8 @@ class TensorFlowClient:
 
     def _run_inference(self, model_input: Any, model_name: str, model_version: str) -> dict:
         """
-        When processes_per_replica = 1 and caching enabled, check/load model and make prediction.
-        When processes_per_replica > 0 and caching disabled, attempt to make prediction regardless.
+        When processes = 1 and caching enabled, check/load model and make prediction.
+        When processes > 0 and caching disabled, attempt to make prediction regardless.
 
         Args:
             model_input: Input to the model.
@@ -399,7 +399,7 @@ class TensorFlowClient:
     def _get_latest_model_version_from_tree(self, model_name: str, model_info: dict) -> str:
         """
         Get the highest version for a specific model name.
-        Must only be used when processes_per_replica = 1 and caching is enabled.
+        Must only be used when processes = 1 and caching is enabled.
         """
         versions, timestamps = model_info["versions"], model_info["timestamps"]
         return str(max(map(lambda x: int(x), versions)))

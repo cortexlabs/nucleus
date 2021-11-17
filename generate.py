@@ -36,8 +36,8 @@ def validate_config(config: dict):
     if "use_local_cortex_libs" not in config:
         config["use_local_cortex_libs"] = False
 
-    if "processes_per_replica" not in config:
-        config["processes_per_replica"] = 1
+    if "processes" not in config:
+        config["processes"] = 1
     if "threads_per_process" not in config:
         config["threads_per_process"] = 1
     if "max_replica_concurrency" not in config:
@@ -285,9 +285,7 @@ def build_tensorflow_dockerfile(config: dict, tfs_dockerfile: bytes, dev_env: bo
     tf_empty_model_config = "/etc/tfs/model_config_server.conf"
     tf_max_num_load_retries = "0"
     tf_load_time_micros = "30000000"
-    grpc_channel_arguments = (
-        int(config["processes_per_replica"]) * int(config["threads_per_process"]) + 10
-    )
+    grpc_channel_arguments = int(config["processes"]) * int(config["threads_per_process"]) + 10
     batch_params_file = "/etc/tfs/batch_config.conf"
 
     if dev_env:
@@ -312,7 +310,7 @@ def build_tensorflow_dockerfile(config: dict, tfs_dockerfile: bytes, dev_env: bo
         tfs_lines += [
             f"ENV TF_MAX_BATCH_SIZE={config['server_side_batching']['max_batch_size']} \\",
             f"    TF_BATCH_TIMEOUT_MICROS={int(float(config['server_side_batching']['batch_interval']) * 1000000)} \\",
-            f"    TF_NUM_BATCHED_THREADS={config['processes_per_replica']}",
+            f"    TF_NUM_BATCHED_THREADS={config['processes']}",
             "",
             f'ENTRYPOINT ["/src/tfs-run.sh", "--port={tf_base_serving_port}", "--model_config_file={tf_empty_model_config}", "--max_num_load_retries={tf_max_num_load_retries}", "--load_retry_interval_micros={tf_load_time_micros}", "--grpc_channel_arguments=\'grpc.max_concurrent_streams={grpc_channel_arguments}\'", "--enable_batching=true", "--batching_parameters_file={batch_params_file}"]',
         ]
