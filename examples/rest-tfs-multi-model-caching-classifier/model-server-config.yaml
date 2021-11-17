@@ -25,3 +25,4 @@ config:
       output_key: classes
   image-classifier-classes: https://s3.amazonaws.com/deep-learning-models/image-models/imagenet_class_index.json
 use_local_cortex_libs: true
+tfs_container_dns: tfs

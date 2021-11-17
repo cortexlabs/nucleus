@@ -4,7 +4,7 @@ This project implements a multi-lingual translation API, supporting translations
 
 
 ```bash
-curl https://localhost:8888/translator -X POST -H "Content-Type: application/json" -d
+curl https://localhost:8888/ -X POST -H "Content-Type: application/json" -d
 {"source_language": "en", "destination_language": "phi", "text": "It is a mistake to think you can solve any major problems just with potatoes." }
 
 {"generated_text": "Sayop an paghunahuna nga masulbad mo ang bisan ano nga dagkong mga problema nga may patatas lamang."}

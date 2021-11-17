@@ -120,6 +120,13 @@ def validate_config(config: dict):
             raise CortexModelServerBuilder(
                 f"{models_fieldname}: when the cache is configured, both 'cache_size' and 'disk_cache_size' fields must be specified"
             )
+        if (
+            "disk_cache_size" in config[models_fieldname]
+            and config[models_fieldname]["cache_size"] > config[models_fieldname]["disk_cache_size"]
+        ):
+            raise CortexModelServerBuilder(
+                f"{models_fieldname}: when the cache is configured, 'cache_size' cannot be larger than 'disk_cache_size'"
+            )
 
         if "paths" in config[models_fieldname]:
             if len(config[models_fieldname]["paths"]) == 0:
