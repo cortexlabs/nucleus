@@ -1,7 +1,6 @@
 {
-    "cylinders": 4,
-    "displacement": 135,
-    "horsepower": 84,
-    "weight": 2490,
-    "acceleration": 15.7
-}
+    "sepal_length": 5.2,
+    "sepal_width": 3.6,
+    "petal_length": 1.5,
+    "petal_width": 0.3
+  }
