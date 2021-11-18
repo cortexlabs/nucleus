@@ -295,9 +295,8 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
         f"COPY {project_dir}/{config_filename} /src/project/{config_filename}",
         "",
         f"ENV CORTEX_MODEL_SERVER_CONFIG /src/project/{config_filename}",
-        f"RUN /opt/conda/envs/env/bin/python /src/cortex/init/expand_server_config.py /src/project/{config_filename} > /src/project/{config_filename}.tmp && \\",
-        f"   mv /src/project/{config_filename}.tmp /src/project/{config_filename} && \\",
-        f"   eval $(/opt/conda/envs/env/bin/python /src/cortex/init/export_env_vars.py /src/project/{config_filename}) && \\",
+        f"RUN /opt/conda/envs/env/bin/python /src/cortex/init/expand_server_config.py /src/project/{config_filename} > /tmp/{config_filename} && \\",
+        f"   eval $(/opt/conda/envs/env/bin/python /src/cortex/init/export_env_vars.py /tmp/{config_filename}) && \\",
     ]
 
     if env_file_exists:
@@ -321,6 +320,7 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
         "    /usr/local/cortex/install-core-dependencies.sh",
         "",
         f"COPY {project_dir}/ /src/project/",
+        f"RUN mv /tmp/{config_filename} /src/project/{config_filename}",
         "",
         'ENTRYPOINT ["/init"]',
         "",
