@@ -31,7 +31,7 @@ def extract_from_handler(server_config: dict) -> dict:
         "CORTEX_DEPENDENCIES_PIP": server_config["dependencies"]["pip"],
         "CORTEX_DEPENDENCIES_CONDA": server_config["dependencies"]["conda"],
         "CORTEX_DEPENDENCIES_SHELL": server_config["dependencies"]["shell"],
-        "CORTEX_MAX_REPLICA_CONCURRENCY": int(server_config["processes"])
+        "CORTEX_MAX_CONCURRENCY": int(server_config["processes"])
         * int(server_config["threads_per_process"]),
     }
 

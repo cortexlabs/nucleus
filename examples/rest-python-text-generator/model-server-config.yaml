@@ -1,0 +1,5 @@
+type: python
+gpu_version:
+  cuda: 10.1
+  cudnn: 8
+path: handler.py

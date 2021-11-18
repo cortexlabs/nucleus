@@ -34,7 +34,7 @@ RUN curl "https://repo.anaconda.com/miniconda/Miniconda3-4.7.12.1-Linux-x86_64.s
     /bin/bash ~/miniconda.sh -b -p /opt/conda && \
     rm -rf ~/.cache ~/miniconda.sh
 
-# split the conda installations because the dev boxes have limited memory
+# split the conda installations to reduce memory usage when building the image
 RUN /opt/conda/bin/conda create -n env -c conda-forge python=$PYTHONVERSION pip=19.* && \
     /opt/conda/bin/conda clean -a && \
     ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \

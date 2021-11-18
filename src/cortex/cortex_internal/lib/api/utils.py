@@ -118,14 +118,14 @@ class DynamicBatcher:
         handler_impl: Callable,
         method_name: str,
         max_batch_size: int,
-        batch_interval: int,
+        batch_interval_seconds: int,
         test_mode: bool = False,
     ):
         self.method_name = method_name
         self.handler_impl = handler_impl
 
         self.batch_max_size = max_batch_size
-        self.batch_interval = batch_interval  # measured in seconds
+        self.batch_interval_seconds = batch_interval_seconds  # measured in seconds
         self.test_mode = test_mode  # only for unit testing
         self._test_batch_lengths = []  # only when unit testing
 
@@ -144,7 +144,7 @@ class DynamicBatcher:
                 continue
 
             try:
-                self.barrier.wait(self.batch_interval)
+                self.barrier.wait(self.batch_interval_seconds)
             except td.BrokenBarrierError:
                 pass
 

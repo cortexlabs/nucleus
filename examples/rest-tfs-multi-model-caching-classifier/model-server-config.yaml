@@ -24,5 +24,4 @@ config:
       input_key: images
       output_key: classes
   image-classifier-classes: https://s3.amazonaws.com/deep-learning-models/image-models/imagenet_class_index.json
-use_local_cortex_libs: true
-tfs_container_dns: tfs
+# tfs_container_dns: tfs # only necessary when developing locally using containers/docker-compose; for K8s pods, this is not necessary

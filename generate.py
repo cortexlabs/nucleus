@@ -21,8 +21,6 @@ import pathlib
 import yaml
 import click
 
-CORTEX_MODEL_SERVER_VERSION = "master"
-
 
 class CortexModelServerBuilder(RuntimeError):
     pass
@@ -43,6 +41,8 @@ def read_model_server_config(file) -> dict:
 def validate_config(config: dict):
     if "type" not in config:
         raise RuntimeError("missing 'type'")
+    if config["type"] not in ["python", "tensorflow"]:
+        raise CortexModelServerBuilder("'type' must either be set to 'python' or 'tensorflow'")
 
     if "py_version" not in config:
         config["py_version"] = "3.6.9"
@@ -56,8 +56,8 @@ def validate_config(config: dict):
         config["processes"] = 1
     if "threads_per_process" not in config:
         config["threads_per_process"] = 1
-    if "max_replica_concurrency" not in config:
-        config["max_replica_concurrency"] = 1
+    if "max_concurrency" not in config:
+        config["max_concurrency"] = 0
 
     if "dependencies" not in config:
         config["dependencies"] = {
@@ -75,15 +75,17 @@ def validate_config(config: dict):
     if "server_side_batching" in config:
         if "max_batch_size" not in config["server_side_batching"]:
             raise CortexModelServerBuilder("server_side_batching: missing 'max_batch_size' field")
-        if "batch_interval" not in config["server_side_batching"]:
-            raise CortexModelServerBuilder("server_side_batching: missing 'batch_interval' field")
+        if "batch_interval_seconds" not in config["server_side_batching"]:
+            raise CortexModelServerBuilder(
+                "server_side_batching: missing 'batch_interval_seconds' field"
+            )
         if not isinstance(config["server_side_batching"]["max_batch_size"], int):
             raise CortexModelServerBuilder(
                 "server_side_batching: 'max_batch_size' field isn't of type 'int'"
             )
-        if not isinstance(config["server_side_batching"]["batch_interval"], float):
+        if not isinstance(config["server_side_batching"]["batch_interval_seconds"], float):
             raise CortexModelServerBuilder(
-                "server_side_batching: 'batch_interval' field isn't of type 'float'"
+                "server_side_batching: 'batch_interval_seconds' field isn't of type 'float'"
             )
 
     if "path" not in config:
@@ -161,8 +163,23 @@ def validate_config(config: dict):
 
     if "gpu_version" not in config:
         config["gpu_version"] = None
-    elif ("cuda" in config["gpu_version"] and "cudnn" not in config["gpu_version"]) or (
-        "cuda" in config["gpu_version"] and "cudnn" not in config["gpu_version"]
+    if "tfs_gpu" not in config:
+        config["tfs_gpu"] = None
+    if config["gpu_version"] and config["tfs_gpu"]:
+        raise CortexModelServerBuilder("can only specify 'gpu_version' or 'tfs_gpu'")
+
+    if config["gpu_version"] and config["type"] == "tensorflow":
+        raise CortexModelServerBuilder(
+            "'gpu_version' field not supported for 'tensorflow' type; use 'tfs_gpu' field instead"
+        )
+    if config["tfs_gpu"] and config["type"] == "python":
+        raise CortexModelServerBuilder(
+            "'tfs_gpu' field not supported for 'python' type; use 'gpu_version' field instead"
+        )
+
+    if config["gpu_version"] and (
+        ("cuda" in config["gpu_version"] and "cudnn" not in config["gpu_version"])
+        or ("cuda" in config["gpu_version"] and "cudnn" not in config["gpu_version"])
     ):
         raise CortexModelServerBuilder(
             "gpu_version: both 'cuda' and 'cudnn' fields must be specified"
@@ -188,13 +205,13 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
         cortex_image_type = "python-handler-gpu"
     if config["type"] == "tensorflow":
         cortex_image_type = "tensorflow-handler"
+
+    tfs_container_dns = "" if "tfs_container_dns" not in config else config["tfs_container_dns"]
     substitute_envs = {
         "BASE_IMAGE": base_image,
         "PYTHON_VERSION": config["py_version"],
         "CORTEX_IMAGE_TYPE": cortex_image_type,
-        "CORTEX_TF_SERVING_HOST": ""
-        if "tfs_container_dns" not in config
-        else config["tfs_container_dns"],
+        "CORTEX_TF_SERVING_HOST": tfs_container_dns,
     }
     for env, val in substitute_envs.items():
         env_var = f"${env}"
@@ -205,13 +222,13 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
     # create handler dockerfile
     if dev_env:
         handler_lines += [
-            "COPY /src/cortex/serve.requirements.txt /src/cortex/serve.requirements.txt",
-            "COPY /src/cortex/cortex_internal.requirements.txt /src/cortex/cortex_internal.requirements.txt",
+            "COPY src/cortex/serve.requirements.txt /src/cortex/serve.requirements.txt",
+            "COPY src/cortex/cortex_internal.requirements.txt /src/cortex/cortex_internal.requirements.txt",
             "",
         ]
     else:
         handler_lines += [
-            "RUN git clone --depth 1 -b v{CORTEX_MODEL_SERVER_VERSION} https://github.com/cortexlabs/nucleus && \\",
+            "RUN git clone --depth 1 -b v${CORTEX_MODEL_SERVER_VERSION} https://github.com/cortexlabs/nucleus && \\",
             "    cp -r cortex-templates/src/* /src/ && \\",
             "    rm -r cortex-templates/",
             "",
@@ -226,34 +243,84 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
     ]
     if dev_env:
         handler_lines += ["", "COPY src/ /src/"]
+
     env_lines = []
-    if cortex_sentry_dsn == "":
-        env_lines += ["ENV CORTEX_LOG_CONFIG_FILE=/src/cortex/log_config.yaml"]
+    if cortex_sentry_dsn != "":
+        env_lines += ["ENV CORTEX_LOG_CONFIG_FILE=/src/cortex/log_config.yaml \\"]
+        if cortex_sentry_dsn != "" and config["type"] == "python":
+            env_lines += [
+                f'    CORTEX_TELEMETRY_SENTRY_DSN="{cortex_sentry_dsn}"',
+            ]
+        elif cortex_sentry_dsn != "" and config["type"] == "tensorflow":
+            env_lines += [
+                f'    CORTEX_TELEMETRY_SENTRY_DSN="{cortex_sentry_dsn}" \\',
+                f"    CORTEX_TFS_VERSION={config['tfs_version']}",
+            ]
     else:
-        env_lines += [
-            "ENV CORTEX_LOG_CONFIG_FILE=/src/cortex/log_config.yaml \\",
-            f'    CORTEX_TELEMETRY_SENTRY_DSN="{cortex_sentry_dsn}"',
-        ]
+        if config["type"] == "python":
+            env_lines += ["ENV CORTEX_LOG_CONFIG_FILE=/src/cortex/log_config.yaml"]
+        else:
+            env_lines += [
+                "ENV CORTEX_LOG_CONFIG_FILE=/src/cortex/log_config.yaml \\",
+                f"    CORTEX_TFS_VERSION={config['tfs_version']}",
+            ]
+
     handler_lines += [
+        *env_lines,
+        "",
         "RUN mkdir -p /usr/local/cortex/ && \\",
         "    cp /src/cortex/init/install-core-dependencies.sh /usr/local/cortex/install-core-dependencies.sh && \\",
         "    chmod +x /usr/local/cortex/install-core-dependencies.sh && \\",
         "    /usr/local/cortex/install-core-dependencies.sh",
-        *env_lines,
         "",
         "RUN pip install --no-deps /src/cortex/ && \\",
         "    mv /src/cortex/init/bootloader.sh /etc/cont-init.d/bootloader.sh",
         "",
-        f"COPY {project_dir}/ /src/project/",
+    ]
+
+    env_file_exists = (project_dir / ".env").exists()
+    pip_deps_exists = (project_dir / config["dependencies"]["pip"]).exists()
+    conda_deps_exists = (project_dir / config["dependencies"]["conda"]).exists()
+    shell_deps_exists = (project_dir / config["dependencies"]["shell"]).exists()
+
+    if env_file_exists:
+        handler_lines += [f"COPY {project_dir}/.env /src/project/"]
+    if shell_deps_exists:
+        handler_lines += [f"COPY {project_dir}/{config['dependencies']['shell']} /src/project/"]
+    if conda_deps_exists:
+        handler_lines += [f"COPY {project_dir}/{config['dependencies']['conda']} /src/project/"]
+    if pip_deps_exists:
+        handler_lines += [f"COPY {project_dir}/{config['dependencies']['pip']} /src/project/"]
+    handler_lines += [
+        f"COPY {project_dir}/{config_filename} /src/project/{config_filename}",
+        "",
         f"ENV CORTEX_MODEL_SERVER_CONFIG /src/project/{config_filename}",
         f"RUN /opt/conda/envs/env/bin/python /src/cortex/init/expand_server_config.py /src/project/{config_filename} > /src/project/{config_filename}.tmp && \\",
         f"   mv /src/project/{config_filename}.tmp /src/project/{config_filename} && \\",
         f"   eval $(/opt/conda/envs/env/bin/python /src/cortex/init/export_env_vars.py /src/project/{config_filename}) && \\",
-        f'   if [ -f "/src/project/.env" ]; then set -a; source /src/project/.env; set +a; fi && \\',
-        '    if [ -f "/src/project/${CORTEX_DEPENDENCIES_SHELL}" ]; then bash -e "/src/project/${CORTEX_DEPENDENCIES_SHELL}"; fi && \\',
-        '    if [ -f "/src/project/${CORTEX_DEPENDENCIES_CONDA}" ]; then conda config --append channels conda-forge && conda install -y --file "/src/project/${CORTEX_DEPENDENCIES_CONDA}"; fi && \\',
-        '    if [ -f "/src/project/${CORTEX_DEPENDENCIES_PIP}" ]; then pip --no-cache-dir install -r "/src/project/${CORTEX_DEPENDENCIES_PIP}"; fi && \\',
+    ]
+
+    if env_file_exists:
+        handler_lines += [
+            f'   if [ -f "/src/project/.env" ]; then set -a; source /src/project/.env; set +a; fi && \\',
+        ]
+    if shell_deps_exists:
+        handler_lines += [
+            '    if [ -f "/src/project/${CORTEX_DEPENDENCIES_SHELL}" ]; then bash -e "/src/project/${CORTEX_DEPENDENCIES_SHELL}"; fi && \\',
+        ]
+    if conda_deps_exists:
+        handler_lines += [
+            '    if [ -f "/src/project/${CORTEX_DEPENDENCIES_CONDA}" ]; then conda config --append channels conda-forge && conda install -y --file "/src/project/${CORTEX_DEPENDENCIES_CONDA}"; fi && \\',
+        ]
+    if pip_deps_exists:
+        handler_lines += [
+            '    if [ -f "/src/project/${CORTEX_DEPENDENCIES_PIP}" ]; then pip --no-cache-dir install -r "/src/project/${CORTEX_DEPENDENCIES_PIP}"; fi && \\',
+        ]
+
+    handler_lines += [
         "    /usr/local/cortex/install-core-dependencies.sh",
+        "",
+        f"COPY {project_dir}/ /src/project/",
         "",
         'ENTRYPOINT ["/init"]',
         "",
@@ -265,11 +332,7 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
 
 def build_tensorflow_dockerfile(config: dict, tfs_dockerfile: bytes, dev_env: bool) -> str:
     runs_on_gpu = False
-    if (
-        config["gpu_version"]
-        and config["gpu_version"]["cuda"] not in ["", None]
-        and config["gpu_version"]["cudnn"] not in ["", None]
-    ):
+    if config["tfs_gpu"]:
         tfs_dockerfile = tfs_dockerfile.replace(
             "$BASE_IMAGE".encode("utf-8"),
             f"tensorflow/serving:{config['tfs_version']}-gpu".encode("utf-8"),
@@ -282,6 +345,10 @@ def build_tensorflow_dockerfile(config: dict, tfs_dockerfile: bytes, dev_env: bo
         )
     tfs_template_lines = tfs_dockerfile.splitlines()
     tfs_lines = [line.decode("utf-8") for line in tfs_template_lines]
+
+    tfs_lines += [
+        "",
+    ]
 
     if runs_on_gpu:
         tfs_lines += [
@@ -317,7 +384,7 @@ def build_tensorflow_dockerfile(config: dict, tfs_dockerfile: bytes, dev_env: bo
         ]
     else:
         tfs_lines += [
-            f"RUN git clone --depth 1 -b v{CORTEX_MODEL_SERVER_VERSION} https://github.com/cortexlabs/nucleus \\",
+            "RUN git clone --depth 1 -b v${CORTEX_MODEL_SERVER_VERSION} https://github.com/cortexlabs/nucleus \\",
             "    cp cortex-templates/data/tfs-run.sh /src/ && \\",
             "    rm -r cortex-templates/",
         ]
@@ -328,11 +395,11 @@ def build_tensorflow_dockerfile(config: dict, tfs_dockerfile: bytes, dev_env: bo
     if (
         "server_side_batching" in config
         and config["server_side_batching"]["max_batch_size"]
-        and config["server_side_batching"]["batch_interval"]
+        and config["server_side_batching"]["batch_interval_seconds"]
     ):
         tfs_lines += [
             f"ENV TF_MAX_BATCH_SIZE={config['server_side_batching']['max_batch_size']} \\",
-            f"    TF_BATCH_TIMEOUT_MICROS={int(float(config['server_side_batching']['batch_interval']) * 1000000)} \\",
+            f"    TF_BATCH_TIMEOUT_MICROS={int(float(config['server_side_batching']['batch_interval_seconds']) * 1000000)} \\",
             f"    TF_NUM_BATCHED_THREADS={config['processes']}",
             "",
             f'ENTRYPOINT ["/src/tfs-run.sh", "--port={tf_base_serving_port}", "--model_config_file={tf_empty_model_config}", "--max_num_load_retries={tf_max_num_load_retries}", "--load_retry_interval_micros={tf_load_time_micros}", "--grpc_channel_arguments=\'grpc.max_concurrent_streams={grpc_channel_arguments}\'", "--enable_batching=true", "--batching_parameters_file={batch_params_file}"]',
@@ -353,33 +420,32 @@ def build_dockerfile_images(config: dict, path_to_config: str) -> List[str]:
     nucleus_file = "nucleus.Dockerfile"
     nucleus_tfs_file = "nucleus-tfs.Dockerfile"
 
-    click.echo("generating dockerfiles for the following model server config")
-    click.echo("--------------------------------------------------------->")
+    click.echo("-------------- nucleus model server config --------------")
     click.echo(yaml.dump(config, indent=2, sort_keys=False))
-    click.echo("--------------------------------------------------------->")
+    click.echo("---------------------------------------------------------")
 
     # if using the local files or the git clone in the Dockerfiles
-    dev_env = config["use_local_cortex_libs"]
+    is_dev_env = config["use_local_cortex_libs"]
 
     # get handler template
-    click.echo("generating handler dockerfile ...")
-    handler_dockerfile = build_handler_dockerfile(config, path_to_config, dev_env)
-    click.echo(f"outputting handler {nucleus_file}")
+    click.echo(f"generating {nucleus_file} dockerfile ...")
+    handler_dockerfile = build_handler_dockerfile(config, path_to_config, is_dev_env)
     with open(nucleus_file, "w") as f:
         f.write(handler_dockerfile)
 
     # get tfs template
     if config["type"] == "tensorflow":
-        click.echo("generating tensorflow dockerfile ...")
+        click.echo(f"generating {nucleus_tfs_file} dockerfile ...")
         tfs_dockerfile = pkgutil.get_data(__name__, "templates/tfs.Dockerfile")
-        tensorflow_dockerfile = build_tensorflow_dockerfile(config, tfs_dockerfile, dev_env)
-        click.echo(f"outputting {nucleus_tfs_file}")
+        tensorflow_dockerfile = build_tensorflow_dockerfile(config, tfs_dockerfile, is_dev_env)
         with open(nucleus_tfs_file, "w") as f:
             f.write(tensorflow_dockerfile)
 
 
 # convert this to "nucleus generate PATH"
-@click.command(help="A Cortex utility to generate Dockerfile Nucleus model servers")
+@click.command(
+    help="A utility to generate Dockerfile(s) for Nucleus model servers. Compatible with Cortex clusters."
+)
 @click.argument("config", required=True, type=str, default="nucleus-model-server-config.yaml")
 def generate(config):
     # get the model server config

@@ -30,7 +30,7 @@ fi
 if [ "${CORTEX_IMAGE_TYPE}" = "tensorflow-handler" ]; then
     if ! module_exists "tensorflow" || ! module_exists "tensorflow_serving"; then
         pip install --no-cache-dir -U \
-            tensorflow-cpu==2.3.0 \
-            tensorflow-serving-api==2.3.0
+            tensorflow-cpu=="${CORTEX_TFS_VERSION}" \
+            tensorflow-serving-api=="${CORTEX_TFS_VERSION}"
     fi
 fi

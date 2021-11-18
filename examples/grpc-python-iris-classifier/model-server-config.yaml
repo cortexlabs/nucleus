@@ -5,4 +5,3 @@ protobuf_path: iris_classifier.proto
 config:
   bucket: cortex-examples
   key: sklearn/iris-classifier/model.pkl
-use_local_cortex_libs: true

@@ -28,8 +28,4 @@ if [[ -n ${TF_MAX_BATCH_SIZE} && -n ${TF_BATCH_TIMEOUT_MICROS} ]]; then
 fi
 
 # launch TFS
-if [ -f "/mnt/kubexit" ]; then
-  /mnt/kubexit tensorflow_model_server "$@"
-else
-  tensorflow_model_server "$@"
-fi
+tensorflow_model_server "$@"

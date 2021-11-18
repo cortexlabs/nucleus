@@ -5,4 +5,3 @@ multi_model_reloading:
   dir: s3://models.huggingface.co/bert/Helsinki-NLP/
   cache_size: 1
   disk_cache_size: 2
-use_local_cortex_libs: true

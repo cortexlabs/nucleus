@@ -19,10 +19,9 @@ set -e
 eval $(/opt/conda/envs/env/bin/python /src/cortex/init/export_env_vars.py $CORTEX_MODEL_SERVER_CONFIG)
 
 # print the model server config
-echo "cortex model server config"
-echo "--------------------------"
+echo "------------ cortex model server config ------------"
 cat $CORTEX_MODEL_SERVER_CONFIG
-echo "--------------------------"
+echo "----------------------------------------------------"
 
 function substitute_env_vars() {
     file_to_run_substitution=$1

@@ -20,7 +20,6 @@ from typing import List, Tuple
 
 import boto3
 import botocore
-import msgpack
 
 from cortex_internal.lib import util
 from cortex_internal.lib.exceptions import CortexException
@@ -185,20 +184,6 @@ class S3:
         if obj is None:
             return None
         return json.loads(obj.decode("utf-8"))
-
-    def put_msgpack(self, obj, key):
-        self.put_object(msgpack.dumps(obj), key)
-
-    def get_msgpack(self, key, allow_missing=False, num_retries=0, retry_delay_sec=2):
-        obj = self._read_bytes_from_s3(
-            key,
-            allow_missing=allow_missing,
-            num_retries=num_retries,
-            retry_delay_sec=retry_delay_sec,
-        )
-        if obj == None:
-            return None
-        return msgpack.loads(obj, raw=False)
 
     def upload_file(self, local_path, key):
         self.s3.upload_file(local_path, self.bucket, key)

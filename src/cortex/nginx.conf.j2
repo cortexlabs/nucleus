@@ -50,8 +50,10 @@ http {
     # don't buffer data sent, good for small data bursts in real time
     tcp_nodelay on;
 
+    {% if (CORTEX_MAX_CONCURRENCY | int) > 0 %}
     # to limit concurrent requests
     limit_conn_zone 1 zone=inflights:1m;
+    {% endif %}
 
     # to distribute load
     aio threads=pool;
@@ -85,7 +87,9 @@ http {
         }
 
         location / {
-            limit_conn inflights {{ CORTEX_MAX_REPLICA_CONCURRENCY | int }};
+            {% if (CORTEX_MAX_CONCURRENCY | int) > 0 %}
+            limit_conn inflights {{ CORTEX_MAX_CONCURRENCY | int }};
+            {% endif %}
 
             grpc_set_header Upgrade $http_upgrade;
             grpc_set_header Connection "Upgrade";
@@ -114,7 +118,9 @@ http {
         }
 
         location /info {
-            limit_conn inflights {{ CORTEX_MAX_REPLICA_CONCURRENCY | int }};
+            {% if (CORTEX_MAX_CONCURRENCY | int) > 0 %}
+            limit_conn inflights {{ CORTEX_MAX_CONCURRENCY | int }};
+            {% endif %}
 
             proxy_set_header 'HOST' $host;
             proxy_set_header 'X-Forwarded-For' $proxy_add_x_forwarded_for;
@@ -152,7 +158,9 @@ http {
                 return 204;
             }
 
-            limit_conn inflights {{ CORTEX_MAX_REPLICA_CONCURRENCY | int }};
+            {% if (CORTEX_MAX_CONCURRENCY | int) > 0 %}
+            limit_conn inflights {{ CORTEX_MAX_CONCURRENCY | int }};
+            {% endif %}
 
             proxy_set_header 'HOST' $host;
             proxy_set_header 'X-Forwarded-For' $proxy_add_x_forwarded_for;

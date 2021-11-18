@@ -18,8 +18,6 @@ import shutil
 import time
 from pathlib import Path
 
-import msgpack
-
 from cortex_internal.lib import util
 from cortex_internal.lib.exceptions import CortexException
 
@@ -94,21 +92,6 @@ class LocalStorage(object):
     def put_object(self, body: bytes, key):
         f = self._get_or_create_path(key)
         f.write_bytes(body)
-
-    def put_msgpack(self, obj, key):
-        f = self._get_or_create_path(key)
-        f.write_bytes(msgpack.dumps(obj))
-
-    def get_msgpack(self, key, allow_missing=False, num_retries=0, retry_delay_sec=2):
-        f = self._get_path_if_exists(
-            key,
-            allow_missing=allow_missing,
-            num_retries=num_retries,
-            retry_delay_sec=retry_delay_sec,
-        )
-        if f is None:
-            return None
-        return msgpack.loads(f.read_bytes())
 
     def upload_file(self, local_path, key):
         shutil.copy(local_path, str(self._get_or_create_path(key)))

@@ -62,7 +62,8 @@ type: <string> # python/tensorflow (required)
 # versions
 py_version: <string> # python version (default: 3.6.9)
 tfs_version: <string> # tensorflow version for when the tensorflow type is used (default: 2.3.0)
-gpu_version: # gpu version if gpu is present (optional)
+tfs_gpu: <bool> # whether to use the GPU for when the tensorflow type is used (default: false)
+gpu_version: # gpu version if gpu is present; only for the python type (optional)
   cuda: <string> # cuda version (tested with 10.0, 10.1, 10.2, 11.0, 11.1) (required)
   cudnn: <string> # cudnn version (tested with 7 and 8) (required)
 
@@ -93,16 +94,16 @@ multi_model_reloading: # use this to serve one or more models with live reloadin
 # concurrency
 threads_per_process: <int>  # the number of threads per process (default: 1)
 processes: <int>  # the number of parallel serving processes to run on each Nucleus instance (default: 1)
-max_replica_concurrency: <int> # max concurrency (default: processes * threads_per_process)
+max_concurrency: <int> # max concurrency (default: 0, aka disabled)
 
 # server side batching
 server_side_batching: # (optional)
   max_batch_size: <int>  # the maximum number of requests to aggregate before running inference
-  batch_interval: <float>  # the maximum amount of time in seconds to spend waiting for additional requests before running inference on the batch of requests
+  batch_interval_seconds: <float>  # the maximum amount of time in seconds to spend waiting for additional requests before running inference on the batch of requests
 
 # misc
 use_local_cortex_libs: <bool> # use the local cortex libs, useful when developing the nucleus model server (default: false)
-tfs_container_dns: <string> # the address of the TFS container for when the tensorflow type is used (default: "localhost")
+tfs_container_dns: <string> # the address of the TFS container for when the tensorflow type is used; only necessary when developing locally using containers/docker-compose; for K8s pods, this is not necessary (default: "localhost")
 log_level: <string>  # log level that can be "debug", "info", "warning" or "error" (default: "info")
 ```
 
@@ -145,6 +146,7 @@ When deploying a Nucleus model server within a K8s pod, there are some things to
 * A readiness probe can be added to check when `/run/workspace/api_readiness.txt` is present on the filesystem. This is highly recommended as otherwise, your pod could refuse requests before it's ready.
 * A shared volume (at `/mnt`) between the handler container and the TFS container is necessary. This is only necessary when the `type` is of `tensorflow`.
 * The host of the TFS container has to be specified in the model server config (`model-server-config.yaml`) so that the handler container can connect to it. This is only necessary when the `type` is of `tensorflow`.
+* The metadata of all loaded models (when the `models` or the `multi_model_reloading` fields are specified) is made available at `/info`.
 
 ## Multi-model
 
@@ -283,9 +285,9 @@ Server-side batching is the process of aggregating multiple real-time requests i
 
 The Python and TensorFlow handlers allow for the use of the following 2 fields in the `server_side_batching` configuration:
 
-* `max_batch_size`: The maximum number of requests to aggregate before running inference. This is an instrument for controlling throughput. The maximum size can be achieved if `batch_interval` is long enough to collect `max_batch_size` requests.
+* `max_batch_size`: The maximum number of requests to aggregate before running inference. This is an instrument for controlling throughput. The maximum size can be achieved if `batch_interval_seconds` is long enough to collect `max_batch_size` requests.
 
-* `batch_interval`: The maximum amount of time to spend waiting for additional requests before running inference on the batch of requests. If fewer than `max_batch_size` requests are received after waiting the full `batch_interval`, then inference will run on the requests that have been received. This is an instrument for controlling latency.
+* `batch_interval_seconds`: The maximum amount of time to spend waiting for additional requests before running inference on the batch of requests. If fewer than `max_batch_size` requests are received after waiting the full `batch_interval_seconds`, then inference will run on the requests that have been received. This is an instrument for controlling latency.
 
 *Note: Server-side batching is not supported for Nucleus servers that use the gRPC protocol.*
 
@@ -347,15 +349,15 @@ with graph.as_default():
 
 ### Optimization
 
-When optimizing for both throughput and latency, you will likely want keep the `max_batch_size` to a relatively small value. Even though a higher `max_batch_size` with a low `batch_interval` (when there are many requests coming in) can offer a significantly higher throughput, the overall latency could be quite large. The reason is that for a request to get back a response, it has to wait until the entire batch is processed, which means that the added latency due to the `batch_interval` can pale in comparison. For instance, let's assume that a single request takes 50ms, and that when the batch size is set to 128, the processing time for a batch is 1280ms (i.e. 10ms per sample). So while the throughput is now 5 times higher, it takes 1280ms + `batch_interval` to get back a response (instead of 50ms). This is the trade-off with server-side batching.
+When optimizing for both throughput and latency, you will likely want keep the `max_batch_size` to a relatively small value. Even though a higher `max_batch_size` with a low `batch_interval_seconds` (when there are many requests coming in) can offer a significantly higher throughput, the overall latency could be quite large. The reason is that for a request to get back a response, it has to wait until the entire batch is processed, which means that the added latency due to the `batch_interval_seconds` can pale in comparison. For instance, let's assume that a single request takes 50ms, and that when the batch size is set to 128, the processing time for a batch is 1280ms (i.e. 10ms per sample). So while the throughput is now 5 times higher, it takes 1280ms + `batch_interval_seconds` to get back a response (instead of 50ms). This is the trade-off with server-side batching.
 
 When optimizing for maximum throughput, a good rule of thumb is to follow these steps:
 
 1. Determine the maximum throughput of one Nucleus server when `server_side_batching` is not enabled (same as if `max_batch_size` were set to 1). This can be done with a load test (make sure to set `max_replicas` to 1 to disable autoscaling).
-1. Determine the highest `batch_interval` with which you are still comfortable for your application. Keep in mind that the batch interval is not the only component of the overall latency - the inference on the batch and the pre/post processing also have to occur.
-1. Multiply the maximum throughput from step 1 by the `batch_interval` from step 2. The result is a number which you can assign to `max_batch_size`.
-1. Run the load test again. If the inference fails with that batch size (e.g. due to running out of GPU or RAM memory), then reduce `max_batch_size` to a level that works (reduce `batch_interval` by the same factor).
-1. Use the load test to determine the peak throughput of the Nucleus server. Multiply the observed throughput by the `batch_interval` to calculate the average batch size. If the average batch size coincides with `max_batch_size`, then it might mean that the throughput could still be further increased by increasing `max_batch_size`. If it's lower, then it means that `batch_interval` is triggering the inference before `max_batch_size` requests have been aggregated. If modifying both `max_batch_size` and `batch_interval` doesn't improve the throughput, then the service may be bottlenecked by something else (e.g. CPU, network IO, `processes`, `threads_per_process`, etc).
+1. Determine the highest `batch_interval_seconds` with which you are still comfortable for your application. Keep in mind that the batch interval is not the only component of the overall latency - the inference on the batch and the pre/post processing also have to occur.
+1. Multiply the maximum throughput from step 1 by the `batch_interval_seconds` from step 2. The result is a number which you can assign to `max_batch_size`.
+1. Run the load test again. If the inference fails with that batch size (e.g. due to running out of GPU or RAM memory), then reduce `max_batch_size` to a level that works (reduce `batch_interval_seconds` by the same factor).
+1. Use the load test to determine the peak throughput of the Nucleus server. Multiply the observed throughput by the `batch_interval_seconds` to calculate the average batch size. If the average batch size coincides with `max_batch_size`, then it might mean that the throughput could still be further increased by increasing `max_batch_size`. If it's lower, then it means that `batch_interval_seconds` is triggering the inference before `max_batch_size` requests have been aggregated. If modifying both `max_batch_size` and `batch_interval_seconds` doesn't improve the throughput, then the service may be bottlenecked by something else (e.g. CPU, network IO, `processes`, `threads_per_process`, etc).
 
 
 

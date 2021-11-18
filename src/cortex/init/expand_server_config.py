@@ -46,8 +46,8 @@ def main(model_server_config_path: str):
         server_config["processes"] = 1
     if "threads_per_process" not in server_config:
         server_config["threads_per_process"] = 1
-    if "max_replica_concurrency" not in server_config:
-        server_config["max_replica_concurrency"] = 1
+    if "max_concurrency" not in server_config:
+        server_config["max_concurrency"] = 0
 
     if "dependencies" not in server_config:
         server_config["dependencies"] = {

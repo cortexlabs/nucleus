@@ -5,7 +5,6 @@ models:
   path: s3://cortex-examples/tensorflow/image-classifier/inception/
 server_side_batching:
   max_batch_size: 2
-  batch_interval: 30.0
+  batch_interval_seconds: 20.0 # set to an absurdly large value to show how the server-side batching works
 threads_per_process: 2
-use_local_cortex_libs: true
-tfs_container_dns: tfs
+# tfs_container_dns: tfs # only necessary when developing locally using containers/docker-compose; for K8s pods, this is not necessary

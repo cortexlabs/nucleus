@@ -17,7 +17,7 @@ from generate import generate
 
 
 @click.group(
-    help="Use the Nucleus CLI to generate model server for Python-generic and TensorFlow models. Compatible with Cortex clusters."
+    help="Use the Nucleus CLI to generate model servers for Python-generic and TensorFlow models. Compatible with Cortex clusters."
 )
 def cli():
     pass

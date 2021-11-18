@@ -43,24 +43,8 @@ class ThreadPoolExecutorWithRequestMonitor:
         self._thread_pool_executor = futures.ThreadPoolExecutor(*args, **kwargs)
 
     def submit(self, fn, *args, **kwargs):
-        request_id = uuid.uuid1()
-        file_id = f"/run/requests/{request_id}"
-        open(file_id, "a").close()
-
-        def wrapper_fn(*args, **kwargs):
-            try:
-                result = fn(*args, **kwargs)
-            except:
-                raise
-            finally:
-                try:
-                    os.remove(file_id)
-                except FileNotFoundError:
-                    pass
-
-            return result
-
-        self._thread_pool_executor.submit(wrapper_fn, *args, **kwargs)
+        # can add any custom logic here using a wrapper func
+        self._thread_pool_executor.submit(fn, *args, **kwargs)
 
     def map(self, *args, **kwargs):
         return self._thread_pool_executor.map(*args, **kwargs)

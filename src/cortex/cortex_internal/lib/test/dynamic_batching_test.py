@@ -32,7 +32,7 @@ def test_dynamic_batching_while_hitting_max_batch_size():
         Handler(),
         method_name="handle_post",
         max_batch_size=max_batch_size,
-        batch_interval=0.1,
+        batch_interval_seconds=0.1,
         test_mode=True,
     )
     counter = itertools.count(1)
@@ -79,7 +79,7 @@ def test_dynamic_batching_while_hitting_max_interval():
         Handler(),
         method_name="handle_post",
         max_batch_size=max_batch_size,
-        batch_interval=1.0,
+        batch_interval_seconds=1.0,
         test_mode=True,
     )
     counter = itertools.count(1)

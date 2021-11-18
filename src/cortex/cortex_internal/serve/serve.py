@@ -103,32 +103,6 @@ async def uncaught_exception_handler(request, e):
 
 
 @app.middleware("http")
-async def register_request(request: Request, call_next):
-    request.state.start_time = time.time()
-
-    file_id = None
-    response = None
-    try:
-        if is_allowed_request(request):
-            if "x-request-id" in request.headers:
-                request_id = request.headers["x-request-id"]
-            else:
-                request_id = uuid.uuid1()
-            file_id = f"/run/requests/{request_id}"
-            open(file_id, "a").close()
-
-        response = await call_next(request)
-    finally:
-        if file_id is not None:
-            try:
-                os.remove(file_id)
-            except FileNotFoundError:
-                pass
-
-    return response
-
-
-@app.middleware("http")
 async def parse_payload(request: Request, call_next):
     if not is_allowed_request(request):
         return await call_next(request)
@@ -306,7 +280,7 @@ def start_fn():
                     handler_impl,
                     method_name=f"handle_post",
                     max_batch_size=dynamic_batching_config["max_batch_size"],
-                    batch_interval=dynamic_batching_config["batch_interval"],
+                    batch_interval_seconds=dynamic_batching_config["batch_interval_seconds"],
                 )
             else:
                 raise UserException(

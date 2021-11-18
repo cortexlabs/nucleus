@@ -20,6 +20,7 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 from sentry_sdk.integrations.threading import ThreadingIntegration
 
 import cortex_internal.lib.exceptions as cexp
+import cortex_internal.consts as consts
 
 PRODUCTION_DSN = "https://5cea3d2d67194d028f7191fcc6ebca14@sentry.io/1825326"
 SENTRY_ENVIRONMENT = "nucleus"
@@ -71,7 +72,7 @@ def init_sentry(
             environment = SENTRY_ENVIRONMENT
 
     if release == "":
-        release = os.environ["CORTEX_MODEL_SERVER_VERSION"]
+        release = consts.MODEL_SERVER_VERSION
 
     sentry_sdk.init(
         dsn=dsn,
