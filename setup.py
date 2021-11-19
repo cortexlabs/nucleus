@@ -23,22 +23,22 @@ setuptools.setup(
     name="nucleus",
     version=CORTEX_MODEL_SERVER_VERSION,
     description="CLI tool to generating the dockerfiles of a nucleus model server; compatible with a Cortex cluster",
-    author="Robert Lucian Chiriac",
+    author="cortex.dev",
     author_email="hello@cortex.dev",
     license="Apache License 2.0",
     url="https://github.com/cortexlabs/nucleus",
-    py_modules=["main"],
     install_requires=install_requires,
     classifiers=[
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3.6",
         "Intended Audience :: Developers",
     ],
+    packages=setuptools.find_packages(),
     include_package_data=True,
     package_data={"": ["templates/*"]},
     entry_points="""
         [console_scripts]
-        nucleus=main:cli
+        nucleus=nucleus.main:cli
     """,
     project_urls={
         "Bug Reports": "https://github.com/cortexlabs/nucleus/issues",

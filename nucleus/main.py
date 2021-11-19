@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import click
-from generate import generate
+from nucleus.generate import generate
 
 
 @click.group(

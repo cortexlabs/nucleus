@@ -361,12 +361,12 @@ def build_tensorflow_dockerfile(config: dict, tfs_dockerfile: bytes, dev_env: bo
 
     if dev_env:
         tfs_lines += [
-            "COPY templates/tfs-run.sh /src/",
+            "COPY nucleus/templates/tfs-run.sh /src/",
         ]
     else:
         tfs_lines += [
             "RUN git clone --depth 1 -b v${CORTEX_MODEL_SERVER_VERSION} https://github.com/cortexlabs/nucleus \\",
-            "    cp nucleus/templates/tfs-run.sh /src/ && \\",
+            "    cp nucleus/nucleus/templates/tfs-run.sh /src/ && \\",
             "    rm -r nucleus/",
         ]
     tfs_lines += [
