@@ -62,8 +62,10 @@ type: <string> # python/tensorflow (required)
 # versions
 py_version: <string> # python version (default: 3.6.9)
 tfs_version: <string> # tensorflow version for when the tensorflow type is used (default: 2.3.0)
-tfs_gpu: <bool> # whether to use the GPU for when the tensorflow type is used (default: false)
-gpu_version: # gpu version if gpu is present; only for the python type (optional)
+
+# gpu
+gpu: <bool> # whether to use the GPU or not (default: false)
+gpu_version: # gpu version (optional)
   cuda: <string> # cuda version (tested with 10.0, 10.1, 10.2, 11.0, 11.1) (required)
   cudnn: <string> # cudnn version (tested with 7 and 8) (required)
 
@@ -94,7 +96,7 @@ multi_model_reloading: # use this to serve one or more models with live reloadin
 # concurrency
 threads_per_process: <int>  # the number of threads per process (default: 1)
 processes: <int>  # the number of parallel serving processes to run on each Nucleus instance (default: 1)
-max_concurrency: <int> # max concurrency (default: 0, aka disabled)
+max_concurrency: <int> # max concurrency (default: 0, i.e. disabled)
 
 # server side batching
 server_side_batching: # (optional)
@@ -147,6 +149,7 @@ When deploying a Nucleus model server within a K8s pod, there are some things to
 * A shared volume (at `/mnt`) between the handler container and the TFS container is necessary. This is only necessary when the `type` is of `tensorflow`.
 * The host of the TFS container has to be specified in the model server config (`model-server-config.yaml`) so that the handler container can connect to it. This is only necessary when the `type` is of `tensorflow`.
 * The metadata of all loaded models (when the `models` or the `multi_model_reloading` fields are specified) is made available at `/info`.
+* When using the tensorflow `type`, the TFS container will start listening on port 9000. Make sure no other service uses this port within the pod. 
 
 ## Multi-model
 

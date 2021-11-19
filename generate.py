@@ -39,10 +39,8 @@ def read_model_server_config(file) -> dict:
 
 
 def validate_config(config: dict):
-    if "type" not in config:
-        raise RuntimeError("missing 'type'")
-    if config["type"] not in ["python", "tensorflow"]:
-        raise CortexModelServerBuilder("'type' must either be set to 'python' or 'tensorflow'")
+    if config.get("type") not in ["python", "tensorflow"]:
+        raise CortexModelServerBuilder("'type' must be set to 'python' or 'tensorflow'")
 
     if "py_version" not in config:
         config["py_version"] = "3.6.9"
@@ -163,18 +161,19 @@ def validate_config(config: dict):
 
     if "gpu_version" not in config:
         config["gpu_version"] = None
-    if "tfs_gpu" not in config:
-        config["tfs_gpu"] = None
-    if config["gpu_version"] and config["tfs_gpu"]:
-        raise CortexModelServerBuilder("can only specify 'gpu_version' or 'tfs_gpu'")
+    if "gpu" not in config:
+        config["gpu"] = False
 
-    if config["gpu_version"] and config["type"] == "tensorflow":
+    if config["type"] == "python" and (
+        (not config["gpu"] and config["gpu_version"])
+        or (config["gpu"] and config["gpu_version"] is None)
+    ):
         raise CortexModelServerBuilder(
-            "'gpu_version' field not supported for 'tensorflow' type; use 'tfs_gpu' field instead"
+            "when gpu is enabled for python type, the 'gpu_version' field must be specified and vice-versa"
         )
-    if config["tfs_gpu"] and config["type"] == "python":
+    if config["type"] == "tensorflow" and config["gpu_version"]:
         raise CortexModelServerBuilder(
-            "'tfs_gpu' field not supported for 'python' type; use 'gpu_version' field instead"
+            "'gpu_version' field not supported for 'tensorflow' type; use 'gpu' field instead"
         )
 
     if config["gpu_version"] and (
@@ -229,8 +228,8 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
     else:
         handler_lines += [
             "RUN git clone --depth 1 -b v${CORTEX_MODEL_SERVER_VERSION} https://github.com/cortexlabs/nucleus && \\",
-            "    cp -r cortex-templates/src/* /src/ && \\",
-            "    rm -r cortex-templates/",
+            "    cp -r nucleus/src/* /src/ && \\",
+            "    rm -r nucleus/",
             "",
         ]
 
@@ -331,13 +330,11 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
 
 
 def build_tensorflow_dockerfile(config: dict, tfs_dockerfile: bytes, dev_env: bool) -> str:
-    runs_on_gpu = False
-    if config["tfs_gpu"]:
+    if config["gpu"]:
         tfs_dockerfile = tfs_dockerfile.replace(
             "$BASE_IMAGE".encode("utf-8"),
             f"tensorflow/serving:{config['tfs_version']}-gpu".encode("utf-8"),
         )
-        runs_on_gpu = True
     else:
         tfs_dockerfile = tfs_dockerfile.replace(
             "$BASE_IMAGE".encode("utf-8"),
@@ -348,34 +345,18 @@ def build_tensorflow_dockerfile(config: dict, tfs_dockerfile: bytes, dev_env: bo
 
     tfs_lines += [
         "",
+        "RUN apt-get update -qq && apt-get install -y --no-install-recommends -q \\",
+        "    curl \\",
+        "    git && \\",
+        "    apt-get clean -qq && rm -rf /var/lib/apt/lists/*",
+        "",
     ]
-
-    if runs_on_gpu:
-        tfs_lines += [
-            "",
-            "RUN apt-get update -qq && apt-get install -y --no-install-recommends -q \\",
-            "    libnvinfer6=6.0.1-1+cuda10.1 \\",
-            "    libnvinfer-plugin6=6.0.1-1+cuda10.1 \\",
-            "    curl \\",
-            "    git && \\",
-            "    apt-get clean -qq && rm -rf /var/lib/apt/lists/*",
-            "",
-        ]
-    else:
-        tfs_lines += [
-            "",
-            "RUN apt-get update -qq && apt-get install -y --no-install-recommends -q \\",
-            "    curl \\",
-            "    git && \\",
-            "    apt-get clean -qq && rm -rf /var/lib/apt/lists/*",
-            "",
-        ]
 
     tf_base_serving_port = 9000
     tf_empty_model_config = "/etc/tfs/model_config_server.conf"
     tf_max_num_load_retries = "0"
     tf_load_time_micros = "30000000"
-    grpc_channel_arguments = int(config["processes"]) * int(config["threads_per_process"]) + 10
+    grpc_max_concurrent_streams = int(config["processes"]) * int(config["threads_per_process"]) + 10
     batch_params_file = "/etc/tfs/batch_config.conf"
 
     if dev_env:
@@ -385,8 +366,8 @@ def build_tensorflow_dockerfile(config: dict, tfs_dockerfile: bytes, dev_env: bo
     else:
         tfs_lines += [
             "RUN git clone --depth 1 -b v${CORTEX_MODEL_SERVER_VERSION} https://github.com/cortexlabs/nucleus \\",
-            "    cp cortex-templates/data/tfs-run.sh /src/ && \\",
-            "    rm -r cortex-templates/",
+            "    cp nucleus/templates/tfs-run.sh /src/ && \\",
+            "    rm -r nucleus/",
         ]
     tfs_lines += [
         "RUN chmod +x /src/tfs-run.sh",
@@ -402,11 +383,11 @@ def build_tensorflow_dockerfile(config: dict, tfs_dockerfile: bytes, dev_env: bo
             f"    TF_BATCH_TIMEOUT_MICROS={int(float(config['server_side_batching']['batch_interval_seconds']) * 1000000)} \\",
             f"    TF_NUM_BATCHED_THREADS={config['processes']}",
             "",
-            f'ENTRYPOINT ["/src/tfs-run.sh", "--port={tf_base_serving_port}", "--model_config_file={tf_empty_model_config}", "--max_num_load_retries={tf_max_num_load_retries}", "--load_retry_interval_micros={tf_load_time_micros}", "--grpc_channel_arguments=\'grpc.max_concurrent_streams={grpc_channel_arguments}\'", "--enable_batching=true", "--batching_parameters_file={batch_params_file}"]',
+            f'ENTRYPOINT ["/src/tfs-run.sh", "--port={tf_base_serving_port}", "--model_config_file={tf_empty_model_config}", "--max_num_load_retries={tf_max_num_load_retries}", "--load_retry_interval_micros={tf_load_time_micros}", "--grpc_channel_arguments=\'grpc.max_concurrent_streams={grpc_max_concurrent_streams}\'", "--enable_batching=true", "--batching_parameters_file={batch_params_file}"]',
         ]
     else:
         tfs_lines += [
-            f'ENTRYPOINT ["/src/tfs-run.sh", "--port={tf_base_serving_port}", "--model_config_file={tf_empty_model_config}", "--max_num_load_retries={tf_max_num_load_retries}", "--load_retry_interval_micros={tf_load_time_micros}", "--grpc_channel_arguments=\'grpc.max_concurrent_streams={grpc_channel_arguments}\'"]'
+            f'ENTRYPOINT ["/src/tfs-run.sh", "--port={tf_base_serving_port}", "--model_config_file={tf_empty_model_config}", "--max_num_load_retries={tf_max_num_load_retries}", "--load_retry_interval_micros={tf_load_time_micros}", "--grpc_channel_arguments=\'grpc.max_concurrent_streams={grpc_max_concurrent_streams}\'"]'
         ]
     tfs_lines.append("")
 
