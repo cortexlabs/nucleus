@@ -228,7 +228,7 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
     else:
         handler_lines += [
             "RUN git clone --depth 1 -b v${CORTEX_MODEL_SERVER_VERSION} https://github.com/cortexlabs/nucleus && \\",
-            "    cp -r nucleus/src/* /src/ && \\",
+            "    cp -r nucleus/src/ /src/ && \\",
             "    rm -r nucleus/",
             "",
         ]
