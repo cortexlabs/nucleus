@@ -32,8 +32,6 @@ function substitute_env_vars() {
 substitute_env_vars $CORTEX_LOG_CONFIG_FILE
 
 mkdir -p /run/workspace
-mkdir -p /run/requests
-
 cd /src/project
 
 # if the container restarted, ensure that it is not perceived as ready
