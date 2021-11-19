@@ -169,11 +169,11 @@ def validate_config(config: dict):
         or (config["gpu"] and config["gpu_version"] is None)
     ):
         raise CortexModelServerBuilder(
-            "when gpu is enabled for python type, the 'gpu_version' field must be specified and vice-versa"
+            "when gpu is enabled for python type, the 'gpu_version' field must be specified too"
         )
     if config["type"] == "tensorflow" and config["gpu_version"]:
         raise CortexModelServerBuilder(
-            "'gpu_version' field not supported for 'tensorflow' type; use 'gpu' field instead"
+            "'gpu_version' field not supported for 'tensorflow' type"
         )
 
     if config["gpu_version"] and (

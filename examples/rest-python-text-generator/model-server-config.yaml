@@ -1,4 +1,5 @@
 type: python
+gpu: true
 gpu_version:
   cuda: 10.1
   cudnn: 8
