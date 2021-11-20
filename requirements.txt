@@ -1,1 +1,2 @@
-click
+click==8.0.3
+getversion==1.0.2

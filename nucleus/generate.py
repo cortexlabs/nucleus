@@ -164,25 +164,23 @@ def validate_config(config: dict):
     if "gpu" not in config:
         config["gpu"] = False
 
-    if config["type"] == "python" and (
-        (not config["gpu"] and config["gpu_version"])
-        or (config["gpu"] and config["gpu_version"] is None)
-    ):
-        raise CortexModelServerBuilder(
-            "when gpu is enabled for python type, the 'gpu_version' field must be specified too"
-        )
+    if config["type"] == "python":
+        if not config["gpu"] and config["gpu_version"]:
+            raise CortexModelServerBuilder(
+                "gpu must be enabled (by setting 'gpu: true') in order to specify 'gpu_version' field"
+            )
+        if config["gpu"] and config["gpu_version"] is None:
+            raise CortexModelServerBuilder(
+                "when gpu is enabled, the 'gpu_version' field must be specified too"
+            )
     if config["type"] == "tensorflow" and config["gpu_version"]:
-        raise CortexModelServerBuilder(
-            "'gpu_version' field not supported for 'tensorflow' type"
-        )
+        raise CortexModelServerBuilder("'gpu_version' field not supported for 'tensorflow' type")
 
-    if config["gpu_version"] and (
-        ("cuda" in config["gpu_version"] and "cudnn" not in config["gpu_version"])
-        or ("cuda" in config["gpu_version"] and "cudnn" not in config["gpu_version"])
-    ):
-        raise CortexModelServerBuilder(
-            "gpu_version: both 'cuda' and 'cudnn' fields must be specified"
-        )
+    if config["gpu_version"]:
+        if "cuda" not in config["gpu_version"]:
+            raise CortexModelServerBuilder("gpu_version: 'cuda' field must be specified")
+        if "cudnn" not in config["gpu_version"]:
+            raise CortexModelServerBuilder("gpu_version: 'cudnn' field must be specified")
 
 
 def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -> str:
@@ -423,7 +421,6 @@ def build_dockerfile_images(config: dict, path_to_config: str) -> List[str]:
             f.write(tensorflow_dockerfile)
 
 
-# convert this to "nucleus generate PATH"
 @click.command(
     help="A utility to generate Dockerfile(s) for Nucleus model servers. Compatible with Cortex clusters."
 )

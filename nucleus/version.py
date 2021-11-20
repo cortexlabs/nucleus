@@ -12,20 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import nucleus
+
 import click
-from nucleus.generate import generate
-from nucleus.version import version
+from getversion import get_module_version
 
 
-@click.group(
-    help="Use the Nucleus CLI to generate model servers for Python-generic and TensorFlow models. Compatible with Cortex clusters."
-)
-def cli():
-    pass
-
-
-cli.add_command(generate)
-cli.add_command(version)
-
-if __name__ == "__main__":
-    cli()
+@click.command(help="Get Nucleus CLI version.")
+def version():
+    version, _ = get_module_version(nucleus)
+    click.echo(f"nucleus cli: {version}")
