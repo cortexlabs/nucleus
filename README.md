@@ -44,12 +44,64 @@ pip install git+https://github.com/cortexlabs/nucleus.git@master
 
 ```bash
 $ nucleus generate --help
-Usage: nucleus generate [OPTIONS] CONFIG
+Usage: nucleus [OPTIONS] COMMAND [ARGS]...
 
-  A Cortex utility to generate Dockerfile Nucleus model servers
+  Use the Nucleus CLI to generate model servers for Python-generic and
+  TensorFlow models. Compatible with Cortex clusters.
 
 Options:
   --help  Show this message and exit.
+
+Commands:
+  generate  A utility to generate Dockerfile(s) for Nucleus model servers.
+  version   Get Nucleus CLI version.
+```
+
+## Example
+
+Generate model server Dockerfile
+
+```bash
+$ nucleus generate examples/rest-python-iris-classifier/model-server-config.yaml 
+-------------- nucleus model server config --------------
+type: python
+py_version: 3.6.9
+path: handler.py
+multi_model_reloading:
+  path: s3://cortex-examples/sklearn/iris-classifier/
+use_local_cortex_libs: false
+serve_port: 8080
+processes: 1
+threads_per_process: 1
+max_concurrency: 0
+dependencies:
+  pip: requirements.txt
+  conda: conda-packages.txt
+  shell: dependencies.sh
+gpu_version: null
+gpu: false
+
+---------------------------------------------------------
+generating nucleus.Dockerfile dockerfile ...
+```
+
+Build the aforementioned Docker image
+
+```bash
+$ docker build -f nucleus.Dockerfile -t nucleus .
+```
+
+Run the Nucleus model server
+
+```bash
+$ docker run -it --rm -p 8080:8080 nucleus
+```
+
+Finally, make a request to it
+
+```bash
+$ curl localhost:8080/ -X POST -H "Content-type: application/json" -d @examples/rest-python-iris-classifier/sample.json
+{"prediction": "setosa", "model": {"version": "latest"}}
 ```
 
 # Configuration

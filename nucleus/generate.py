@@ -225,7 +225,7 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
         ]
     else:
         handler_lines += [
-            "RUN git clone --depth 1 -b v${CORTEX_MODEL_SERVER_VERSION} https://github.com/cortexlabs/nucleus && \\",
+            "RUN git clone --depth 1 -b ${CORTEX_MODEL_SERVER_VERSION} https://github.com/cortexlabs/nucleus && \\",
             "    cp -r nucleus/src/ /src/ && \\",
             "    rm -r nucleus/",
             "",
@@ -363,7 +363,7 @@ def build_tensorflow_dockerfile(config: dict, tfs_dockerfile: bytes, dev_env: bo
         ]
     else:
         tfs_lines += [
-            "RUN git clone --depth 1 -b v${CORTEX_MODEL_SERVER_VERSION} https://github.com/cortexlabs/nucleus \\",
+            "RUN git clone --depth 1 -b ${CORTEX_MODEL_SERVER_VERSION} https://github.com/cortexlabs/nucleus \\",
             "    cp nucleus/nucleus/templates/tfs-run.sh /src/ && \\",
             "    rm -r nucleus/",
         ]
