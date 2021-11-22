@@ -1,0 +1,9 @@
+type: python
+py_version: 3.6.9
+path: handler.py
+config:
+  model: s3://cortex-examples/pytorch/iris-classifier/weights.pth
+server_side_batching:
+  max_batch_size: 8
+  batch_interval_seconds: 20.0 # set to an absurdly large value to show how the server-side batching works
+threads_per_process: 8

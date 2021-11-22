@@ -1,0 +1,4 @@
+type: python
+py_version: 3.6.9
+path: generator.py
+protobuf_path: generator.proto
