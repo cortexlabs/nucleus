@@ -1,31 +1,45 @@
 # Nucleus model server
 
-The Nucleus is a model server for TensorFlow and generic Python models. The Nucleus model server is supposed to run as part of a k8s pod. For developing your model server, you can run it locally with docker compose. Compatible with the [Cortex](https://github.com/cortexlabs/cortex) cluster. A non-comprehensive list of all features baked into Nucleus is:
+Nucleus is a model server for TensorFlow and generic Python models. It is compatible with [Cortex](https://github.com/cortexlabs/cortex) clusters, Kubernetes clusters, and any other container-based deployment platforms. Nucleus can also be run locally via docker compose.
 
-1. TensorFlow models.
-1. Generic Python models (PyTorch, ONNX, Sklearn, MLFlow, Numpy, Pandas, Caffe, etc) with custom loader.
-1. Models as S3 paths.
-1. Model reloading triggered on upstream change (S3 buckets).
-1. Model caching based on LRU policy.
-1. Model versions.
+Some of Nucleus's features include:
+
+1. TensorFlow models
+1. Generic Python models (PyTorch, ONNX, Sklearn, MLFlow, Numpy, Pandas, Caffe, etc)
+1. Serve models directly from S3 paths
+1. Dynamic server-side request batching
+1. Multi-model endpoints
+1. Automatic model reloading triggered on upstream change (S3 buckets)
+1. Model caching based on LRU policy
 
 # Table of contents
 
 * [Getting started](#getting-started)
+  * [Install Nucleus](#install-nucleus)
+  * [Example usage](#example-usage)
 * [Configuration](#configuration)
+  * [Model server configuration schema](#model-server-configuration-schema)
   * [Project files](#project-files)
+    * [PyPI packages](#pypi-packages)
+    * [Conda packages](#conda-packages)
+    * [GitHub packages](#github-packages)
+    * [setup.py](#setuppy)
+    * [System packages](#system-packages)
+    * [Example project structure](#example-project-structure)
   * [Pod integration](#pod-integration)
+    * [Cortex cluster](#cortex-cluster)
+    * [Non-Cortex cluster](#non-cortex-cluster)
   * [Multi-model](#multi-model)
   * [Multi-model caching](#multi-model-caching)
   * [Server-side batching](#server-side-batching)
-* [Implementation](#implementation)
+* [Handler implementation](#handler-implementation)
   * [HTTP](#http)
   * [gRPC](#grpc)
-  * [Structured logging](#structured-logging)
   * [Nucleus parallelism](#nucleus-parallelism)
   * [Models](#models)
     * [Python Handler](#python-handler)
     * [Tensorflow Handler](#tensorflow-handler)
+  * [Structured logging](#structured-logging)
 * Examples
   * [gRPC Python on the iris classifier](examples/grpc-python-iris-classifier)
   * [gRPC Python on the prime generator](examples/grpc-python-prime-generator)
@@ -38,149 +52,248 @@ The Nucleus is a model server for TensorFlow and generic Python models. The Nucl
 
 # Getting started
 
+## Install Nucleus
+
+<!-- UPDATE THIS VERSION ON EACH RELEASE (it's better than using "master") -->
+
 ```bash
-pip install git+https://github.com/cortexlabs/nucleus.git@master
+pip install git+https://github.com/cortexlabs/nucleus.git@0.1.0
 ```
 
+## Example usage
+
+Generate a model server Dockerfile based on a Nucleus configuration file:
+
 ```bash
-$ nucleus generate --help
-Usage: nucleus [OPTIONS] COMMAND [ARGS]...
-
-  Use the Nucleus CLI to generate model servers for Python-generic and
-  TensorFlow models. Compatible with Cortex clusters.
-
-Options:
-  --help  Show this message and exit.
-
-Commands:
-  generate  A utility to generate Dockerfile(s) for Nucleus model servers.
-  version   Get Nucleus CLI version.
+nucleus generate examples/rest-python-iris-classifier/model-server-config.yaml
 ```
 
-## Example
-
-Generate model server Dockerfile
+Build the Docker image:
 
 ```bash
-$ nucleus generate examples/rest-python-iris-classifier/model-server-config.yaml 
--------------- nucleus model server config --------------
-type: python
-py_version: 3.6.9
-path: handler.py
-multi_model_reloading:
-  path: s3://cortex-examples/sklearn/iris-classifier/
-use_local_cortex_libs: false
-serve_port: 8080
-processes: 1
-threads_per_process: 1
-max_concurrency: 0
-dependencies:
-  pip: requirements.txt
-  conda: conda-packages.txt
-  shell: dependencies.sh
-gpu_version: null
-gpu: false
-
----------------------------------------------------------
-generating nucleus.Dockerfile dockerfile ...
+docker build -f nucleus.Dockerfile -t iris-classifier .
 ```
 
-Build the aforementioned Docker image
+Run the Nucleus model server:
 
 ```bash
-$ docker build -f nucleus.Dockerfile -t nucleus .
+docker run -it --rm -p 8080:8080 iris-classifier
 ```
 
-Run the Nucleus model server
+Make a request to the model server:
 
 ```bash
-$ docker run -it --rm -p 8080:8080 nucleus
-```
-
-Finally, make a request to it
-
-```bash
-$ curl localhost:8080/ -X POST -H "Content-type: application/json" -d @examples/rest-python-iris-classifier/sample.json
-{"prediction": "setosa", "model": {"version": "latest"}}
+curl localhost:8080/ -X POST -H "Content-type: application/json" -d @examples/rest-python-iris-classifier/sample.json
 ```
 
 # Configuration
 
-When building your model server, you will need a `model-server-config.yaml` that should be placed in your project's directory.
+To build a Nucleus model server, you will need a directory which contains your source code as well as a model server configuration file (e.g. `model-server-config.yaml`).
+
+## Model server configuration schema
 
 ```yaml
-type: <string> # python/tensorflow (required)
+type: <string>  # python or tensorflow (required)
 
 # versions
-py_version: <string> # python version (default: 3.6.9)
-tfs_version: <string> # tensorflow version for when the tensorflow type is used (default: 2.3.0)
+py_version: <string>  # python version (default: 3.6.9)
+tfs_version: <string>  # tensorflow version (only applicable for tensorflow model type) (default: 2.3.0)
 
 # gpu
-gpu: <bool> # whether to use the GPU or not (default: false)
-gpu_version: # gpu version (optional)
-  cuda: <string> # cuda version (tested with 10.0, 10.1, 10.2, 11.0, 11.1) (required)
-  cudnn: <string> # cudnn version (tested with 7 and 8) (required)
+gpu: <bool>  # whether your model server will use a GPU (default: false)
+gpu_version:  # gpu version (only applicable for python model type, required if gpu is used)
+  cuda: <string>  # cuda version (tested with 10.0, 10.1, 10.2, 11.0, 11.1) (required)
+  cudnn: <string>  # cudnn version (tested with 7 and 8) (required)
 
 # dependencies
 dependencies:
-  pip: <string> # relative path to requirements.txt (default: requirements.txt)
-  conda: <string> # relative path to conda-packages.txt (default: conda-packages.txt)
-  shell: <string> # relative path to a shell script for system package installation (default: dependencies.sh)
+  pip: <string>  # relative path to requirements.txt (default: requirements.txt)
+  conda: <string>  # relative path to conda-packages.txt (default: conda-packages.txt)
+  shell: <string>  # relative path to a shell script for system package installation (default: dependencies.sh)
 
-serve_port: <int> # nucleus serve port from which requests can be made (default: 8080)
-env: # environment vars to be exported to the model server
+serve_port: <int>  # the port that will be responding to requests (default: 8080)
+env:  # environment variables to be exported to the model server (optional)
   # <string: string>  # dictionary of environment variables
-config: # dictionary config to be passed to the model server constructor
-  # <string: value>  # arbitrary dictionary passed to the constructor of the Handler class (optional)
-python_path: <string> # path to the root of your Python folder that will be appended to PYTHONPATH (default: folder containing the model server config) (required)
-protobuf_path: <string> # path to a protobuf file relative to your project dir (required if using gRPC)
-models: # use this to serve one or more models with live reloading for the tensorflow type (optional)
-  path: <string> # S3 path to an exported model directory (e.g. s3://my-bucket/exported_model/) (either this, 'dir', or 'paths' must be provided if 'models' is specified)
+config:  # dictionary config to be passed to the model server's constructor (optional)
+  # <string: value>  # arbitrary dictionary passed to the constructor of the Handler class
+python_path: <string>  # path to the root of your Python folder that will be appended to PYTHONPATH (default: folder containing the model server config) (required)
+protobuf_path: <string>  # path to a protobuf file relative to your project dir (required if using gRPC)
+models: # use this to serve one or more models with live reloading for the tensorflow type (required for tensorflow type, not supported for python type)
+  path: <string>  # S3 path to an exported model directory (e.g. s3://my-bucket/exported_model/) (either this, 'dir', or 'paths' must be provided if 'models' is specified)
   paths:  # list of S3 paths to exported model directories (either this, 'dir', or 'path' must be provided if 'models' is specified)
-    - name: <string> # unique name for the model (e.g. text-generator) (required)
-      path: <string> # S3 path to an exported model directory (e.g. s3://my-bucket/exported_model/) (required)
-  dir: <string> # S3 path to a directory containing multiple models (e.g. s3://my-bucket/models/) (either this, 'path', or 'paths' must be provided if 'models' is specified)
-  cache_size: <int> # the number models to keep in memory (optional; all models are kept in memory by default)
-  disk_cache_size: <int> # the number of models to keep on disk (optional; all models are kept on disk by default)
-multi_model_reloading: # use this to serve one or more models with live reloading for the python type (optional)
-  - ... # same as for "models"
+    - name: <string>  # unique name for the model (e.g. text-generator) (required)
+      path: <string>  # S3 path to an exported model directory (e.g. s3://my-bucket/exported_model/) (required)
+  dir: <string>  # S3 path to a directory containing multiple models (e.g. s3://my-bucket/models/) (either this, 'path', or 'paths' must be provided if 'models' is specified)
+  cache_size: <int>  # the number models to keep in memory (optional; all models are kept in memory by default)
+  disk_cache_size: <int>  # the number of models to keep on disk (optional; all models are kept on disk by default)
+multi_model_reloading:  # use this to serve one or more models with live reloading for the python type (optional for python type, not supported for tensorflow type)
+  - ...  # same schema as for "models"
 
 # concurrency
-threads_per_process: <int>  # the number of threads per process (default: 1)
 processes: <int>  # the number of parallel serving processes to run on each Nucleus instance (default: 1)
-max_concurrency: <int> # max concurrency (default: 0, i.e. disabled)
+threads_per_process: <int>  # the number of threads per process (default: 1)
+max_concurrency: <int>  # max concurrency (default: 0, i.e. disabled)
 
 # server side batching
-server_side_batching: # (optional)
+server_side_batching:  # (optional)
   max_batch_size: <int>  # the maximum number of requests to aggregate before running inference
   batch_interval_seconds: <float>  # the maximum amount of time in seconds to spend waiting for additional requests before running inference on the batch of requests
 
 # misc
-use_local_cortex_libs: <bool> # use the local cortex libs, useful when developing the nucleus model server (default: false)
-tfs_container_dns: <string> # the address of the TFS container for when the tensorflow type is used; only necessary when developing locally using containers/docker-compose; for K8s pods, this is not necessary (default: "localhost")
+tfs_container_dns: <string>  # the address of the tensorflow serving container for when the tensorflow type is used; only necessary when developing locally using containers/docker-compose; for K8s pods, this is not necessary (default: "localhost")
 log_level: <string>  # log level that can be "debug", "info", "warning" or "error" (default: "info")
+use_local_cortex_libs: <bool>  # use the local cortex libs, useful when developing the nucleus model server (default: false)
 ```
 
 ## Project files
 
-Nucleus makes all files in the project directory (i.e. the directory which contains `nucleus-model-server-config.yaml`) available for use in your Handler class implementation.
+Nucleus makes all files in the project directory (i.e. the directory which contains the model server configuration file) available for use in your Handler class implementation. At runtime, the working directory will be set to the root of your project directory.
 
-The following files can also be added at the root of the project's directory:
+### PyPI packages
 
-The `.env` file can be added at the root of the project's directory. It exports environment variables that can be used in the handler. Each line of this file must follow the `VARIABLE=value` format.
+Nucleus looks for a `requirements.txt` file in the top level of your project directory, and will use `pip` to install the listed packages within your container.
 
-For example, if your directory looks like this:
+For example:
 
 ```text
 ./my-classifier/
-├── nucleus-model-server-config.yaml
-├── values.json
+├── model-server-config.yaml
 ├── handler.py
 ├── ...
 └── requirements.txt
 ```
 
-You can access `values.json` in your handler class like this:
+#### Private PyPI packages
+
+To install packages from a private PyPI index, create a `pip.conf` inside the same directory as `requirements.txt`, and add the following contents:
+
+```text
+[global]
+extra-index-url = https://<username>:<password>@<my-private-index>.com/pip
+```
+
+In same directory, create a [`dependencies.sh` script](system-packages.md) and add the following:
+
+```bash
+cp pip.conf /etc/pip.conf
+```
+
+You may now add packages to `requirements.txt` which are found in the private index.
+
+### Conda packages
+
+Nucleus supports installing Conda packages. We recommend only using Conda when your required packages are not available in PyPI. Nucleus looks for a `conda-packages.txt` file in the top level Nucleus project directory:
+
+```text
+./my-classifier/
+├── model-server-config.yaml
+├── handler.py
+├── ...
+└── conda-packages.txt
+```
+
+The `conda-packages.txt` file follows the format of `conda list --export`. Each line of `conda-packages.txt` should follow this pattern: `[channel::]package[=version[=buildid]]`.
+
+Here's an example of `conda-packages.txt`:
+
+```text
+conda-forge::rdkit
+conda-forge::pygpu
+```
+
+In situations where both `requirements.txt` and `conda-packages.txt` are provided, Nucleus installs Conda packages in `conda-packages.txt` followed by PyPI packages in `requirements.txt`. Conda and Pip package managers install packages and dependencies independently. You may run into situations where Conda and pip package managers install different versions of the same package because they install and resolve dependencies independently from one another. To resolve package version conflicts, it may be in your best interest to specify their exact versions in `conda-packages.txt`.
+
+### GitHub packages
+
+You can also install public/private packages from git registries (such as GitHub) by adding them to `requirements.txt`. Here's an example for GitHub:
+
+```text
+# requirements.txt
+
+# public access
+git+https://github.com/<username>/<repo name>.git@<tag or branch name>#egg=<package name>
+
+# private access
+git+https://<personal access token>@github.com/<username>/<repo name>.git@<tag or branch name>#egg=<package name>
+```
+
+On GitHub, you can generate a personal access token by following [these steps](https://help.github.com/en/github/authenticating-to-github/creating-a-personal-access-token-for-the-command-line).
+
+### setup.py
+
+Python packages can also be installed by providing a `setup.py` that describes your project's modules. Here's an example directory structure:
+
+```text
+./my-classifier/
+├── model-server-config.yaml
+├── handler.py
+├── ...
+├── mypkg
+│   └── __init__.py
+├── requirements.txt
+└── setup.py
+```
+
+In this case, `requirements.txt` will have this form:
+
+```text
+# requirements.txt
+
+.
+```
+
+### System packages
+
+Nucleus looks for a file named `dependencies.sh` in the top level project directory. For example:
+
+```text
+./my-classifier/
+├── model-server-config.yaml
+├── handler.py
+├── ...
+└── dependencies.sh
+```
+
+`dependencies.sh` is executed with `bash` shell at build time (before installing Python packages in `requirements.txt` or `conda-packages.txt`). Typical use cases include installing required system packages to be used in your Handler, building Python packages from source, etc.
+
+Here is an example `dependencies.sh`, which installs the `tree` utility:
+
+```bash
+apt-get update && apt-get install -y tree
+```
+
+The `tree` utility can now be called inside your `handler.py`:
+
+```python
+# handler.py
+
+import subprocess
+
+class Handler:
+    def __init__(self, config):
+        subprocess.run(["tree"])
+    ...
+```
+
+### Example project structure
+
+Here is a sample project directory
+
+```text
+./my-classifier/
+├── nucleus-model-server-config.yaml
+├── handler.py
+├── my-data.json
+├── ...
+├── .env
+├── dependencies.sh
+├── conda-packages.txt
+└── requirements.txt
+```
+
+The `dependencies.sh` file will be executed and the Python packages specified in `requirements.txt` and `conda-packages.txt` will be installed in your docker image at build time.
+
+At run time, you can access the environment variables specified in `.env`, and you can access `my-data.json` in your handler class like this:
 
 ```python
 # handler.py
@@ -189,19 +302,46 @@ import json
 
 class Handler:
     def __init__(self, config):
-        with open('values.json', 'r') as values_file:
-            values = json.load(values_file)
-        self.values = values
+        with open('my-data.json', 'r') as data_file:
+            data = json.load(data_file)
+        self.data = data
 ```
 
 ## Pod integration
 
-When deploying a Nucleus model server within a K8s pod, there are some things to keep in mind:
-* A readiness probe can be added to check when `/run/workspace/api_readiness.txt` is present on the filesystem. This is highly recommended as otherwise, your pod could refuse requests before it's ready.
-* A shared volume (at `/mnt`) between the handler container and the TFS container is necessary. This is only necessary when the `type` is of `tensorflow`.
-* The host of the TFS container has to be specified in the model server config (`model-server-config.yaml`) so that the handler container can connect to it. This is only necessary when the `type` is of `tensorflow`.
+### Cortex cluster
+
+Here is an example of a Cortex api configuration for deploying to a [Cortex cluster](https://github.com/cortexlabs/cortex):
+
+```yaml
+- name: iris-classifier
+  kind: RealtimeAPI
+  pod:
+    port: 8080
+    max_concurrency: 1
+    containers:
+    - name: nucleus
+      image: quay.io/my-org/iris-classifier-nucleus:latest
+      readiness_probe:
+        exec:
+          command: ["ls", "/run/workspace/api_readiness.txt"]
+      compute:
+        cpu: 200m
+        mem: 256Mi
+```
+
+When deploying a Nucleus model server to a [Cortex cluster](https://github.com/cortexlabs/cortex), there are a few things to keep in mind:
+
+* It is highly recommended to configure a readiness probe (if omitted, requests may be routed to your server before it's ready). This can be done by checking when `/run/workspace/api_readiness.txt` is present on the filesystem. See above for an example.
+* When using the tensorflow model type, the TensorFlow Serving container will be listening on port 9000. Make sure no other service uses this port within the pod.
 * The metadata of all loaded models (when the `models` or the `multi_model_reloading` fields are specified) is made available at `/info`.
-* When using the tensorflow `type`, the TFS container will start listening on port 9000. Make sure no other service uses this port within the pod. 
+
+### Non-Cortex cluster
+
+When deploying a Nucleus model server with the tensorflow type on a generic Kubernetes pod (not within Cortex), there are some additional things to keep in mind:
+
+* A shared volume (at `/mnt`) must exist between the handler container and the TensorFlow Serving container.
+* The host of the TensorFlow Serving container has to be specified in the model server configuration (`model-server-config.yaml`) so that the handler container can connect to it.
 
 ## Multi-model
 
@@ -209,7 +349,7 @@ When deploying a Nucleus model server within a K8s pod, there are some things to
 
 #### Specifying models in Nucleus configuration
 
-##### `cortex.yaml`
+##### `nucleus-model-server-config.yaml`
 
 The directory `s3://cortex-examples/sklearn/mpg-estimator/linreg/` contains 4 different versions of the model.
 
@@ -248,7 +388,7 @@ class Handler:
 
 #### Without specifying models in Nucleus configuration
 
-##### `cortex.yaml`
+##### `nucleus-model-server-config.yaml`
 
 ```yaml
 # nucleus-model-server-config.yaml
@@ -286,7 +426,7 @@ class Handler:
 
 ### TensorFlow Handler
 
-#### `cortex.yaml`
+#### `nucleus-model-server-config.yaml`
 
 ```yaml
 # nucleus-model-server-config.yaml
@@ -338,7 +478,7 @@ Nucleus runs a background process every 10 seconds that counts the number of mod
 
 Server-side batching is the process of aggregating multiple real-time requests into a single batch execution, which increases throughput at the expense of latency. Inference is triggered when either a maximum number of requests have been received, or when a certain amount of time has passed since receiving the first request, whichever comes first. Once a threshold is reached, the handling function is run on the received requests and responses are returned individually back to the clients. This process is transparent to the clients.
 
-The Python and TensorFlow handlers allow for the use of the following 2 fields in the `server_side_batching` configuration:
+The Python and TensorFlow handlers allow for the use of the following two fields in the `server_side_batching` configuration:
 
 * `max_batch_size`: The maximum number of requests to aggregate before running inference. This is an instrument for controlling throughput. The maximum size can be achieved if `batch_interval_seconds` is long enough to collect `max_batch_size` requests.
 
@@ -415,8 +555,7 @@ When optimizing for maximum throughput, a good rule of thumb is to follow these 
 1. Use the load test to determine the peak throughput of the Nucleus server. Multiply the observed throughput by the `batch_interval_seconds` to calculate the average batch size. If the average batch size coincides with `max_batch_size`, then it might mean that the throughput could still be further increased by increasing `max_batch_size`. If it's lower, then it means that `batch_interval_seconds` is triggering the inference before `max_batch_size` requests have been aggregated. If modifying both `max_batch_size` and `batch_interval_seconds` doesn't improve the throughput, then the service may be bottlenecked by something else (e.g. CPU, network IO, `processes`, `threads_per_process`, etc).
 
 
-
-# Implementation
+# Handler implementation
 
 ## HTTP
 
@@ -724,7 +863,7 @@ message Response {
 }
 ```
 
-The handler implementation will also have a corresponding `Predict` method defined that represents the RPC method in the above protobuf service. The name(s) of the RPC method(s) is not enforced by Cortex.
+The handler implementation will also have a corresponding `Predict` method defined that represents the RPC method in the above protobuf service. The name(s) of the RPC method(s) is not enforced by Nucleus.
 
 The type of the `payload` parameter passed into `Predict(self, payload)` will match that of the `Sample` message defined in the `protobuf_path` file. For this example, we'll assume that the above protobuf file was specified for the Nucleus server.
 
@@ -886,27 +1025,6 @@ def Predict(self, payload):
 ...
 ```
 
-## Structured logging
-
-You can use the built-in logger in your handler implemention to log in JSON. This will enrich your logs with metadata, and you can add custom metadata to the logs by adding key value pairs to the `extra` key when using the logger. For example:
-
-```python
-...
-from cortex_internal.lib.log import logger as cortex_logger
-
-class Handler:
-    def handle_post(self, payload):
-        cortex_logger.info("received payload", extra={"payload": payload})
-```
-
-The dictionary passed in via the `extra` will be flattened by one level. e.g.
-
-```text
-{"asctime": "2021-01-19 15:14:05,291", "levelname": "INFO", "message": "received payload", "process": 235, "payload": "this movie is awesome"}
-```
-
-To avoid overriding essential metadata, please refrain from specifying the following extra keys: `asctime`, `levelname`, `message`, `labels`, and `process`. When used with a Cortex cluster, log lines greater than 5 MB in size will be ignored.
-
 ## Nucleus parallelism
 
 Nucleus server parallelism can be configured with the following fields in the Nucleus configuration:
@@ -930,7 +1048,7 @@ The following is a list of events that will trigger Nucleus to update its model(
 
 ### Python Handler
 
-To use live model reloading with the Python handler, the model path(s) must be specified in the Nucleus configuration, via the `multi_model_reloading` field. When models are specified in this manner, your `Handler` class must implement the `load_model()` function, and models can be retrieved by using the `get_model()` method of the `model_client` that's passed into your handler's constructor.
+To use live model reloading with the Python handler, the model path(s) must be specified in the Nucleus configuration, via the `multi_model_reloading` field (this field is not required when not using live model reloading). When models are specified in this manner, your `Handler` class must implement the `load_model()` function, and models can be retrieved by using the `get_model()` method of the `model_client` that's passed into your handler's constructor.
 
 #### Example
 
@@ -1013,7 +1131,6 @@ class Handler:
     # define any handler methods for HTTP/gRPC workloads here
 ```
 
-<!-- NUCLEUS_VERSION_MINOR -->
 When explicit model paths are specified in the Python handler's Nucleus configuration, Nucleus provides a `model_client` to your Handler's constructor. `model_client` is an instance of [ModelClient](https://github.com/cortexlabs/nucleus/tree/master/src/cortex/cortex_internal/lib/client/python.py) that is used to load model(s) (it calls the `load_model()` method of your handler, which must be defined when using explicit model paths). It should be saved as an instance variable in your handler class, and your handler method should call `model_client.get_model()` to load your model for inference. Preprocessing of the JSON/gRPC payload and postprocessing of predictions can be implemented in your handler method as well.
 
 When multiple models are defined using the Handler's `multi_model_reloading` field, the `model_client.get_model()` method expects an argument `model_name` which must hold the name of the model that you want to load (for example: `self.client.get_model("text-generator")`). There is also an optional second argument to specify the model version.
@@ -1188,7 +1305,6 @@ class Handler:
     # define any handler methods for HTTP/gRPC workloads here
 ```
 
-<!-- NUCLEUS_VERSION_MINOR -->
 Nucleus provides a `tensorflow_client` to your Handler's constructor. `tensorflow_client` is an instance of [TensorFlowClient](https://github.com/cortexlabs/nucleus/tree/master/src/cortex/cortex_internal/lib/client/tensorflow.py) that manages a connection to a TensorFlow Serving container to make predictions using your model. It should be saved as an instance variable in your Handler class, and your handler method should call `tensorflow_client.predict()` to make an inference with your exported TensorFlow model. Preprocessing of the JSON payload and postprocessing of predictions can be implemented in your handler method as well.
 
 When multiple models are defined using the Handler's `models` field, the `tensorflow_client.predict()` method expects a second argument `model_name` which must hold the name of the model that you want to use for inference (for example: `self.client.predict(payload, "text-generator")`). There is also an optional third argument to specify the model version.
@@ -1311,3 +1427,24 @@ or for a versioned model:
           ├── variables.data-00001-of-00003
           └── variables.data-00002-of-...
 ```
+
+## Structured logging
+
+You can use the built-in logger in your handler implemention to log in JSON. This will enrich your logs with metadata, and you can add custom metadata to the logs by adding key value pairs to the `extra` key when using the logger. For example:
+
+```python
+...
+from cortex_internal.lib.log import logger as cortex_logger
+
+class Handler:
+    def handle_post(self, payload):
+        cortex_logger.info("received payload", extra={"payload": payload})
+```
+
+The dictionary passed in via the `extra` will be flattened by one level. e.g.
+
+```text
+{"asctime": "2021-01-19 15:14:05,291", "levelname": "INFO", "message": "received payload", "process": 235, "payload": "this movie is awesome"}
+```
+
+To avoid overriding essential metadata, please refrain from specifying the following extra keys: `asctime`, `levelname`, `message`, `labels`, and `process`. When used with a Cortex cluster, log lines greater than 5 MB in size will be ignored.
