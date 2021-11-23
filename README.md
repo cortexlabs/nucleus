@@ -54,8 +54,10 @@ Some of Nucleus's features include:
 
 ## Install Nucleus
 
+<!-- UPDATE THIS VERSION ON EACH RELEASE (it's better than using "master") -->
+
 ```bash
-pip install git+https://github.com/cortexlabs/nucleus.git@master
+pip install git+https://github.com/cortexlabs/nucleus.git@0.1.0
 ```
 
 ## Example usage
