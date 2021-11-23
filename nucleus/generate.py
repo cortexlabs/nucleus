@@ -407,20 +407,18 @@ def build_dockerfile_images(config: dict, path_to_config: str) -> List[str]:
     is_dev_env = config["use_local_cortex_libs"]
 
     # get handler template
-    click.echo(f"generating {nucleus_file} ...")
     handler_dockerfile = build_handler_dockerfile(config, path_to_config, is_dev_env)
     with open(nucleus_file, "w") as f:
         f.write(handler_dockerfile)
-    click.echo(f"✓ done")
+    click.echo(f"✓ generated {nucleus_file}")
 
     # get tfs template
     if config["type"] == "tensorflow":
-        click.echo(f"generating {nucleus_tfs_file} ...")
         tfs_dockerfile = pkgutil.get_data(__name__, "templates/tfs.Dockerfile")
         tensorflow_dockerfile = build_tensorflow_dockerfile(config, tfs_dockerfile, is_dev_env)
         with open(nucleus_tfs_file, "w") as f:
             f.write(tensorflow_dockerfile)
-        click.echo(f"✓ done")
+        click.echo(f"✓ generated {nucleus_tfs_file}")
 
 
 @click.command(
