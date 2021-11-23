@@ -35,11 +35,11 @@ Some of Nucleus's features include:
 * [Handler implementation](#handler-implementation)
   * [HTTP](#http)
   * [gRPC](#grpc)
-  * [Structured logging](#structured-logging)
   * [Nucleus parallelism](#nucleus-parallelism)
   * [Models](#models)
     * [Python Handler](#python-handler)
     * [Tensorflow Handler](#tensorflow-handler)
+  * [Structured logging](#structured-logging)
 * Examples
   * [gRPC Python on the iris classifier](examples/grpc-python-iris-classifier)
   * [gRPC Python on the prime generator](examples/grpc-python-prime-generator)
@@ -81,8 +81,7 @@ docker run -it --rm -p 8080:8080 iris-classifier
 Make a request to the model server:
 
 ```bash
-$ curl localhost:8080/ -X POST -H "Content-type: application/json" -d @examples/rest-python-iris-classifier/sample.json
-{"prediction": "setosa", "model": {"version": "latest"}}
+curl localhost:8080/ -X POST -H "Content-type: application/json" -d @examples/rest-python-iris-classifier/sample.json
 ```
 
 # Configuration
@@ -96,11 +95,11 @@ type: <string>  # python or tensorflow (required)
 
 # versions
 py_version: <string>  # python version (default: 3.6.9)
-tfs_version: <string> # tensorflow version (only applicable for tensorflow model type) (default: 2.3.0)
+tfs_version: <string>  # tensorflow version (only applicable for tensorflow model type) (default: 2.3.0)
 
 # gpu
 gpu: <bool>  # whether your model server will use a GPU (default: false)
-gpu_version:  # gpu version (only applicable for python model type)
+gpu_version:  # gpu version (only applicable for python model type, required if gpu is used)
   cuda: <string>  # cuda version (tested with 10.0, 10.1, 10.2, 11.0, 11.1) (required)
   cudnn: <string>  # cudnn version (tested with 7 and 8) (required)
 
@@ -124,7 +123,7 @@ models: # use this to serve one or more models with live reloading for the tenso
       path: <string>  # S3 path to an exported model directory (e.g. s3://my-bucket/exported_model/) (required)
   dir: <string>  # S3 path to a directory containing multiple models (e.g. s3://my-bucket/models/) (either this, 'path', or 'paths' must be provided if 'models' is specified)
   cache_size: <int>  # the number models to keep in memory (optional; all models are kept in memory by default)
-  disk_cache_size: <int> # the number of models to keep on disk (optional; all models are kept on disk by default)
+  disk_cache_size: <int>  # the number of models to keep on disk (optional; all models are kept on disk by default)
 multi_model_reloading:  # use this to serve one or more models with live reloading for the python type (optional for python type, not supported for tensorflow type)
   - ...  # same schema as for "models"
 
@@ -310,15 +309,34 @@ class Handler:
 
 ### Cortex cluster
 
+Here is an example of a Cortex api configuration for deploying to a [Cortex cluster](https://github.com/cortexlabs/cortex):
+
+```yaml
+- name: iris-classifier
+  kind: RealtimeAPI
+  pod:
+    port: 8080
+    max_concurrency: 1
+    containers:
+    - name: nucleus
+      image: quay.io/my-org/iris-classifier-nucleus:latest
+      readiness_probe:
+        exec:
+          command: ["ls", "/run/workspace/api_readiness.txt"]
+      compute:
+        cpu: 200m
+        mem: 256Mi
+```
+
 When deploying a Nucleus model server to a [Cortex cluster](https://github.com/cortexlabs/cortex), there are a few things to keep in mind:
 
-* It is highly recommended to configure a readiness probe (if omitted, requests may be routed to your server before it's ready). This can be done by checking when `/run/workspace/api_readiness.txt` is present on the filesystem.
-* When using the tensorflow model type, The TensorFlow Serving container will be listening on port 9000. Make sure no other service uses this port within the pod.
+* It is highly recommended to configure a readiness probe (if omitted, requests may be routed to your server before it's ready). This can be done by checking when `/run/workspace/api_readiness.txt` is present on the filesystem. See above for an example.
+* When using the tensorflow model type, the TensorFlow Serving container will be listening on port 9000. Make sure no other service uses this port within the pod.
 * The metadata of all loaded models (when the `models` or the `multi_model_reloading` fields are specified) is made available at `/info`.
 
 ### Non-Cortex cluster
 
-When deploying a Nucleus model server within a generic Kubernetes pod (not within Cortex), there are some additional things to keep in mind when using the tensorflow model type:
+When deploying a Nucleus model server with the tensorflow type on a generic Kubernetes pod (not within Cortex), there are some additional things to keep in mind:
 
 * A shared volume (at `/mnt`) must exist between the handler container and the TensorFlow Serving container.
 * The host of the TensorFlow Serving container has to be specified in the model server configuration (`model-server-config.yaml`) so that the handler container can connect to it.
@@ -1005,27 +1023,6 @@ def Predict(self, payload):
 ...
 ```
 
-## Structured logging
-
-You can use the built-in logger in your handler implemention to log in JSON. This will enrich your logs with metadata, and you can add custom metadata to the logs by adding key value pairs to the `extra` key when using the logger. For example:
-
-```python
-...
-from cortex_internal.lib.log import logger as cortex_logger
-
-class Handler:
-    def handle_post(self, payload):
-        cortex_logger.info("received payload", extra={"payload": payload})
-```
-
-The dictionary passed in via the `extra` will be flattened by one level. e.g.
-
-```text
-{"asctime": "2021-01-19 15:14:05,291", "levelname": "INFO", "message": "received payload", "process": 235, "payload": "this movie is awesome"}
-```
-
-To avoid overriding essential metadata, please refrain from specifying the following extra keys: `asctime`, `levelname`, `message`, `labels`, and `process`. When used with a Cortex cluster, log lines greater than 5 MB in size will be ignored.
-
 ## Nucleus parallelism
 
 Nucleus server parallelism can be configured with the following fields in the Nucleus configuration:
@@ -1430,3 +1427,24 @@ or for a versioned model:
           ├── variables.data-00001-of-00003
           └── variables.data-00002-of-...
 ```
+
+## Structured logging
+
+You can use the built-in logger in your handler implemention to log in JSON. This will enrich your logs with metadata, and you can add custom metadata to the logs by adding key value pairs to the `extra` key when using the logger. For example:
+
+```python
+...
+from cortex_internal.lib.log import logger as cortex_logger
+
+class Handler:
+    def handle_post(self, payload):
+        cortex_logger.info("received payload", extra={"payload": payload})
+```
+
+The dictionary passed in via the `extra` will be flattened by one level. e.g.
+
+```text
+{"asctime": "2021-01-19 15:14:05,291", "levelname": "INFO", "message": "received payload", "process": 235, "payload": "this movie is awesome"}
+```
+
+To avoid overriding essential metadata, please refrain from specifying the following extra keys: `asctime`, `levelname`, `message`, `labels`, and `process`. When used with a Cortex cluster, log lines greater than 5 MB in size will be ignored.
