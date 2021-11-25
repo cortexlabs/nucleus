@@ -4,13 +4,16 @@ Nucleus is a model server for TensorFlow and generic Python models. It is compat
 
 Some of Nucleus's features include:
 
-1. TensorFlow models
-1. Generic Python models (PyTorch, ONNX, Sklearn, MLFlow, Numpy, Pandas, Caffe, etc)
-1. Serve models directly from S3 paths
-1. Dynamic server-side request batching
-1. Multi-model endpoints
-1. Automatic model reloading triggered on upstream change (S3 buckets)
-1. Model caching based on LRU policy
+* Generic Python models (PyTorch, ONNX, Sklearn, MLFlow, Numpy, Pandas, Caffe, etc)
+* TensorFlow models
+* CPU and GPU support
+* Serve models directly from S3 paths
+* Multiprocessing and multithreadding
+* Multi-model endpoints
+* Dynamic server-side request batching
+* Automatic model reloading when new model versions are uploaded to S3
+* Model caching based on LRU policy (disk and memory)
+* HTTP and gRPC support
 
 # Table of contents
 
