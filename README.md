@@ -21,7 +21,7 @@ Some of Nucleus's features include:
   * [Install Nucleus](#install-nucleus)
   * [Example usage](#example-usage)
 * [Configuration](#configuration)
-  * [Model server configuration schema](#model-server-configuration-schema)
+  * [Model server configuration schema (nucleus.yaml)](#model-server-configuration-schema)
   * [Project files](#project-files)
     * [PyPI packages](#pypi-packages)
     * [Conda packages](#conda-packages)
@@ -68,7 +68,7 @@ pip install git+https://github.com/cortexlabs/nucleus.git@0.1.0
 Generate a model server Dockerfile based on a Nucleus configuration file:
 
 ```bash
-nucleus generate examples/rest-python-iris-classifier/model-server-config.yaml
+nucleus generate examples/rest-python-iris-classifier/nucleus.yaml
 ```
 
 Build the Docker image:
@@ -91,7 +91,7 @@ curl localhost:8080/ -X POST -H "Content-type: application/json" -d @examples/re
 
 # Configuration
 
-To build a Nucleus model server, you will need a directory which contains your source code as well as a model server configuration file (e.g. `model-server-config.yaml`).
+To build a Nucleus model server, you will need a directory which contains your source code as well as a model server configuration file (e.g. `nucleus.yaml`).
 
 ## Model server configuration schema
 
@@ -160,7 +160,7 @@ For example:
 
 ```text
 ./my-classifier/
-├── model-server-config.yaml
+├── nucleus.yaml
 ├── handler.py
 ├── ...
 └── requirements.txt
@@ -189,7 +189,7 @@ Nucleus supports installing Conda packages. We recommend only using Conda when y
 
 ```text
 ./my-classifier/
-├── model-server-config.yaml
+├── nucleus.yaml
 ├── handler.py
 ├── ...
 └── conda-packages.txt
@@ -228,7 +228,7 @@ Python packages can also be installed by providing a `setup.py` that describes y
 
 ```text
 ./my-classifier/
-├── model-server-config.yaml
+├── nucleus.yaml
 ├── handler.py
 ├── ...
 ├── mypkg
@@ -251,7 +251,7 @@ Nucleus looks for a file named `dependencies.sh` in the top level project direct
 
 ```text
 ./my-classifier/
-├── model-server-config.yaml
+├── nucleus.yaml
 ├── handler.py
 ├── ...
 └── dependencies.sh
@@ -284,7 +284,7 @@ Here is a sample project directory
 
 ```text
 ./my-classifier/
-├── nucleus-model-server-config.yaml
+├── nucleus.yaml
 ├── handler.py
 ├── my-data.json
 ├── ...
@@ -344,7 +344,7 @@ When deploying a Nucleus model server to a [Cortex cluster](https://github.com/c
 When deploying a Nucleus model server with the tensorflow type on a generic Kubernetes pod (not within Cortex), there are some additional things to keep in mind:
 
 * A shared volume (at `/mnt`) must exist between the handler container and the TensorFlow Serving container.
-* The host of the TensorFlow Serving container has to be specified in the model server configuration (`model-server-config.yaml`) so that the handler container can connect to it.
+* The host of the TensorFlow Serving container has to be specified in the model server configuration (`nucleus.yaml`) so that the handler container can connect to it.
 
 ## Multi-model
 
@@ -352,12 +352,12 @@ When deploying a Nucleus model server with the tensorflow type on a generic Kube
 
 #### Specifying models in Nucleus configuration
 
-##### `nucleus-model-server-config.yaml`
+##### `nucleus.yaml`
 
 The directory `s3://cortex-examples/sklearn/mpg-estimator/linreg/` contains 4 different versions of the model.
 
 ```yaml
-# nucleus-model-server-config.yaml
+# nucleus.yaml
 
 type: python
 path: handler.py
@@ -391,10 +391,10 @@ class Handler:
 
 #### Without specifying models in Nucleus configuration
 
-##### `nucleus-model-server-config.yaml`
+##### `nucleus.yaml`
 
 ```yaml
-# nucleus-model-server-config.yaml
+# nucleus.yaml
 
 type: python
 path: handler.py
@@ -429,10 +429,10 @@ class Handler:
 
 ### TensorFlow Handler
 
-#### `nucleus-model-server-config.yaml`
+#### `nucleus.yaml`
 
 ```yaml
-# nucleus-model-server-config.yaml
+# nucleus.yaml
 
 type: tensorflow
 path: handler.py
@@ -1180,7 +1180,7 @@ Whenever a model path is specified in an Nucleus configuration file, it should b
 The most common pattern is to serve a single model per Nucleus server. The path to the model is specified in the `path` field in the `multi_model_reloading` configuration. For example:
 
 ```yaml
-# nucleus-model-server-config.yaml
+# nucleus.yaml
 
 type: python
 multi_model_reloading:
@@ -1192,7 +1192,7 @@ multi_model_reloading:
 It is possible to serve multiple models from a single Nucleus server. The paths to the models are specified in the Nucleus configuration, either via the `multi_model_reloading.paths` or `multi_model_reloading.dir` field in the configuration. For example:
 
 ```yaml
-# nucleus-model-server-config.yaml
+# nucleus.yaml
 
 type: python
 multi_model_reloading:
@@ -1205,7 +1205,7 @@ multi_model_reloading:
 or:
 
 ```yaml
-# nucleus-model-server-config.yaml
+# nucleus.yaml
 
 type: python
 multi_model_reloading:
@@ -1346,7 +1346,7 @@ Whenever a model path is specified in a Nucleus configuration file, it should be
 The most common pattern is to serve a single model per Nucleus server. The path to the model is specified in the `path` field in the `models` configuration. For example:
 
 ```yaml
-# nucleus-model-server-config.yaml
+# nucleus.yaml
 
 type: tensorflow
 models:
@@ -1358,7 +1358,7 @@ models:
 It is possible to serve multiple models from a single Nucleus server. The paths to the models are specified in the Nucleus configuration, either via the `models.paths` or `models.dir` field in the Nucleus configuration. For example:
 
 ```yaml
-# nucleus-model-server-config.yaml
+# nucleus.yaml
 
 type: tensorflow
 models:
@@ -1371,7 +1371,7 @@ models:
 or:
 
 ```yaml
-# nucleus-model-server-config.yaml
+# nucleus.yaml
 
 type: tensorflow
 models:
