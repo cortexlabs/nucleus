@@ -58,11 +58,7 @@ def validate_config(config: dict):
         config["max_concurrency"] = 0
 
     if "dependencies" not in config:
-        config["dependencies"] = {
-            "pip": "requirements.txt",
-            "conda": "conda-packages.txt",
-            "shell": "dependencies.sh",
-        }
+        config["dependencies"] = {}
     if "pip" not in config["dependencies"]:
         config["dependencies"]["pip"] = "requirements.txt"
     if "conda" not in config["dependencies"]:
