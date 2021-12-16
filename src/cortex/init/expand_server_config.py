@@ -50,16 +50,12 @@ def main(model_server_config_path: str):
         server_config["max_concurrency"] = 0
 
     if "dependencies" not in server_config:
-        server_config["dependencies"] = {
-            "pip": "requirements.txt",
-            "conda": "conda-packages.txt",
-            "shell": "dependencies.sh",
-        }
-    elif "pip" not in server_config["dependencies"]:
+        server_config["dependencies"] = {}
+    if "pip" not in server_config["dependencies"]:
         server_config["dependencies"]["pip"] = "requirements.txt"
-    elif "conda" not in server_config["dependencies"]:
+    if "conda" not in server_config["dependencies"]:
         server_config["dependencies"]["conda"] = "conda-packages.txt"
-    elif "shell" not in server_config["dependencies"]:
+    if "shell" not in server_config["dependencies"]:
         server_config["dependencies"]["shell"] = "dependencies.sh"
 
     if "python_path" not in server_config:
