@@ -425,7 +425,7 @@ def build_dockerfile_images(config: dict, path_to_config: str) -> List[str]:
 @click.command(
     help="A utility to generate Dockerfile(s) for Nucleus model servers. Compatible with Cortex clusters."
 )
-@click.argument("config", required=True, type=str, default="nucleus-model-server-config.yaml")
+@click.argument("config", required=True, type=str, default="nucleus.yaml")
 def generate(config):
     # get the model server config
     server_config = read_model_server_config(config)
