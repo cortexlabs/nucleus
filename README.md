@@ -44,14 +44,14 @@ Some of Nucleus's features include:
     * [Tensorflow Handler](#tensorflow-handler)
   * [Structured logging](#structured-logging)
 * Examples
-  * [gRPC Python on the iris classifier](examples/grpc-python-iris-classifier)
-  * [gRPC Python on the prime generator](examples/grpc-python-prime-generator)
-  * [REST Python on the iris classifier](examples/rest-python-iris-classifier)
-  * [REST Python model caching on a translator model](examples/rest-python-model-caching-translator)
-  * [REST Python server-side-batching on the iris classifier](examples/rest-python-server-side-batching-iris-classifier)
-  * [REST TFS multi model caching on generic classifiers](examples/rest-tfs-multi-model-caching-classifier)
-  * [REST TFS multi model on generic classifiers](examples/rest-tfs-multi-model-classifier)
-  * [REST TFS server side batching on the inception classifier](examples/rest-tfs-server-side-batching-inception-classifier)
+  * [REST Python (iris classifier)](examples/rest-python-iris-classifier)
+  * [REST Python model caching (translator model)](examples/rest-python-model-caching-translator)
+  * [REST Python server-side batching (iris classifier)](examples/rest-python-server-side-batching-iris-classifier)
+  * [REST TensorFlow Serving multi-model (generic classifiers)](examples/rest-tfs-multi-model-classifier)
+  * [REST TensorFlow Serving multi-model caching (generic classifiers)](examples/rest-tfs-multi-model-caching-classifier)
+  * [REST TensorFlow Serving server-side batching (inception classifier)](examples/rest-tfs-server-side-batching-inception-classifier)
+  * [gRPC Python (iris classifier)](examples/grpc-python-iris-classifier)
+  * [gRPC Python (prime number generator)](examples/grpc-python-prime-generator)
 
 # Getting started
 
