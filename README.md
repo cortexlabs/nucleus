@@ -60,7 +60,7 @@ Some of Nucleus's features include:
 <!-- UPDATE THIS VERSION ON EACH RELEASE (it's better than using "master") -->
 
 ```bash
-pip install git+https://github.com/cortexlabs/nucleus.git@0.2.1
+pip install git+https://github.com/cortexlabs/nucleus.git@0.2.2
 ```
 
 ## Example usage
@@ -120,6 +120,7 @@ env:  # environment variables to be exported to the model server (optional)
 config:  # dictionary config to be passed to the model server's constructor (optional)
   # <string: value>  # arbitrary dictionary passed to the constructor of the Handler class
 python_path: <string>  # path to the root of your Python folder that will be appended to PYTHONPATH (default: folder containing the model server config) (required)
+path: <string>  # path to the Python handler script containing the Handler class relative to the <python_path> path (required)
 protobuf_path: <string>  # path to a protobuf file relative to your project dir (required if using gRPC)
 models: # use this to serve one or more models with live reloading for the tensorflow type (required for tensorflow type, not supported for python type)
   path: <string>  # S3 path to an exported model directory (e.g. s3://my-bucket/exported_model/) (either this, 'dir', or 'paths' must be provided if 'models' is specified)
