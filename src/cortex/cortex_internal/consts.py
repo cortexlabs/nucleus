@@ -13,4 +13,4 @@
 # limitations under the License.
 
 SINGLE_MODEL_NAME = "_cortex_default"
-MODEL_SERVER_VERSION = "0.2.1"
+MODEL_SERVER_VERSION = "0.2.2"
