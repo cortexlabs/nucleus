@@ -14,7 +14,7 @@
 
 import setuptools
 
-CORTEX_MODEL_SERVER_VERSION = "master"
+CORTEX_MODEL_SERVER_VERSION = "0.3.0"
 
 with open("requirements.txt") as fp:
     install_requires = fp.read()
