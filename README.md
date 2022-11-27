@@ -107,6 +107,7 @@ gpu: <bool>  # whether your model server will use a GPU (default: false)
 gpu_version:  # gpu version (only applicable for python model type, required if gpu is used)
   cuda: <string>  # cuda version (tested with 10.0, 10.1, 10.2, 11.0, 11.1) (required)
   cudnn: <string>  # cudnn version (tested with 7 and 8) (required)
+  development_image: <bool>  # whether to use the dev cuda image or not (default: false)
 
 # dependencies
 dependencies:

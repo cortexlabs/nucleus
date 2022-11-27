@@ -177,6 +177,8 @@ def validate_config(config: dict):
             raise CortexModelServerBuilder("gpu_version: 'cuda' field must be specified")
         if "cudnn" not in config["gpu_version"]:
             raise CortexModelServerBuilder("gpu_version: 'cudnn' field must be specified")
+        if "development_image" not in config["gpu_version"]:
+            config["gpu_version"]["development_image"] = False
 
 
 def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -> str:
@@ -193,8 +195,10 @@ def build_handler_dockerfile(config: dict, path_to_config: str, dev_env: bool) -
         and config["gpu_version"]
         and config["gpu_version"]["cuda"] not in ["", None]
         and config["gpu_version"]["cudnn"] not in ["", None]
+        and config["gpu_version"]["development_image"] not in ["", None]
     ):
-        base_image = f"nvidia/cuda:{config['gpu_version']['cuda']}-cudnn{config['gpu_version']['cudnn']}-runtime-ubuntu18.04"
+        image_type = "devel" if config["gpu_version"]["development_image"] else "runtime"
+        base_image = f"nvidia/cuda:{config['gpu_version']['cuda']}-cudnn{config['gpu_version']['cudnn']}-{image_type}-ubuntu18.04"
         cortex_image_type = "python-handler-gpu"
     if config["type"] == "tensorflow":
         cortex_image_type = "tensorflow-handler"
